@@ -58,7 +58,7 @@
 		root.State = s;
 
 
-		root.context = new (window.AudioContext || window.webkitAudioContext)();
+		root.context = (window.__HOST_AUDIO) ? null : new (window.AudioContext || window.webkitAudioContext)();
 
 		// append main svg element
 		root.svg = d3.select("body").append("svg").attr('id', 'viz')
