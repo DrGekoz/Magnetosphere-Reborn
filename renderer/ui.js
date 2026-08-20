@@ -136,6 +136,10 @@ class UI {
       </div>
       <div class="panel-scroll">
       <div class="section">
+        <div class="sec-label">${ICONS.sparkles} ENGINES / TEMPLATES</div>
+        <div id="tpl-grid" class="theme-grid"></div>
+      </div>
+      <div class="section">
         <div class="sec-label">${ICONS.globe} GLOBAL THEMES</div>
         <div id="theme-cats" class="cat-row"></div>
         <div id="theme-grid" class="theme-grid"></div>
@@ -194,6 +198,7 @@ class UI {
     // theme category chips
     this._renderCats();
     this._renderThemeGrid();
+    this._renderTplGrid();
 
     // initial param sections (default template schema)
     this.setTemplate(TEMPLATES[0] || null);
@@ -247,7 +252,7 @@ class UI {
     for (const t of slice) {
       const card = document.createElement('div');
       card.className = 'theme-card' + (this._activeId === t.id ? ' active' : '');
-      card.innerHTML = `<img class="theme-thumb" src="${this._thumbSVG(t)}" alt="${t.name}"><div class="theme-name">${t.name}</div><div class="theme-desc">${t.desc || ''}</div>`;
+      card.innerHTML = `<img class="theme-thumb" src="${this._thumbSrc(t)}" alt="${t.name}"><div class="theme-name">${t.name}</div><div class="theme-desc">${t.desc || ''}</div>`;
       card.addEventListener('click', () => { this._activeId = t.id; this.cb.onApplyTheme(t); this._renderThemeGrid(); });
       cont.appendChild(card);
     }
@@ -266,6 +271,30 @@ class UI {
       cnt.textContent = `${this.themePage + 1} / ${pages}`;
       pager.appendChild(prev); pager.appendChild(cnt); pager.appendChild(next);
     }
+  }
+
+  // Template cards (engines) — click to switch the whole template
+  _renderTplGrid() {
+    const cont = this.els['tpl-grid'];
+    if (!cont) return;
+    cont.innerHTML = '';
+    for (const t of TEMPLATES) {
+      const card = document.createElement('div');
+      card.className = 'theme-card' + (this._tplId === t.id ? ' active' : '');
+      card.innerHTML = `<img class="theme-thumb" src="${this._thumbSrc(t)}" alt="${t.name}"><div class="theme-name">${t.name}</div><div class="theme-desc">${t.desc || ''}</div>`;
+      card.addEventListener('click', () => {
+        this._tplId = t.id;
+        this.cb.onApplyTemplate(t.id);
+        this._renderTplGrid();
+      });
+      cont.appendChild(card);
+    }
+  }
+
+  _thumbSrc(t) {
+    // real README screenshot when available, else generated SVG thumbnail
+    if (t.thumb) return t.thumb;
+    return this._thumbSVG(t);
   }
 
   _thumbSVG(t) {

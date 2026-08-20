@@ -104,6 +104,7 @@ class App {
     this.ui = new UI({
       onChange: (k, v) => this.setParam(k, v),
       onApplyTheme: (t) => this.applyTheme(t),
+      onApplyTemplate: (id) => this.applyTemplate(id),
       onSavePreset: (name, params) => this.saveCustomPreset(name, params),
       onDeletePreset: (name) => this.deleteCustomPreset(name),
       onApplyCustom: (name) => this.applyCustomPreset(name),
@@ -258,9 +259,31 @@ class App {
   _applyTemplateForMode(mode) {
     if (!window.__modules.templates || !this.ui) return;
     const { TEMPLATES } = window.__modules.templates;
-    const id = ({ Blob: 'blob', Milk: 'milk', audioMotion: 'audiomotion', Bars: 'raymarch', Scope: 'raymarch', Plasma: 'raymarch', Fountain: 'raymarch' })[mode] || 'orbs';
+    const id = ({ Blob: 'blob', Milk: 'milk', audioMotion: 'audiomotion', av3d: 'av3d', 'party-mode': 'party-mode', Bars: 'raymarch', Scope: 'raymarch', Plasma: 'raymarch', Fountain: 'raymarch' })[mode] || 'orbs';
     const tpl = TEMPLATES.find((t) => t.id === id);
     if (tpl) this.ui.setTemplate(tpl);
+  }
+
+  // Apply a template (engine + schema) by id
+  applyTemplate(id) {
+    if (!window.__modules.templates) return;
+    const { TEMPLATES } = window.__modules.templates;
+    const tpl = TEMPLATES.find((t) => t.id === id);
+    if (!tpl) return;
+    this.ui.setTemplate(tpl);
+    if (tpl.engine === 'iframe') {
+      this.setParam('visualMode', id);
+    } else if (tpl.id === 'orbs') {
+      this.setParam('visualMode', 'Orbs');
+    } else if (tpl.id === 'blob') {
+      this.setParam('visualMode', 'Blob');
+    } else if (tpl.id === 'milk') {
+      this.setParam('visualMode', 'Milk');
+    } else if (tpl.id === 'audiomotion') {
+      this.setParam('visualMode', 'audioMotion');
+    } else if (tpl.id === 'raymarch') {
+      this.setParam('visualMode', 'Bars');
+    }
   }
 
   _pushSceneConfig() {    this.scene.configure(this.themeScene);

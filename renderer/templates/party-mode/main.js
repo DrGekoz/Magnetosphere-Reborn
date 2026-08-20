@@ -78,7 +78,8 @@
 		else if (h.getURLParameter('audio') != null)
 			a.loadAudioFromURL(h.getURLParameter('audio'));
 		else
-			a.loadSound();
+			// Magnetosphere bridge: use host-fed audio (bridged mic path) instead of file picker
+			a.microphone();
 
 		if (State.fastHide)
 			h.toggleMenu();
@@ -361,6 +362,32 @@
 	a.microphone = function() {
 		// this will only work over an https connection (or running the app locally)
 		console.log('a.microphone fired');
+
+		// ---- Magnetosphere bridge: use host-fed audio data instead of getUserMedia ----
+		// (credit: preziotte/party-mode — original used the microphone)
+		if (window.__HOST_AUDIO) {
+			micStream = true;
+			context = null;
+			source = null;
+			analyser = {
+				frequencyBinCount: 1024,
+				smoothingTimeConstant: 0.8,
+				getByteFrequencyData: function (arr) {
+					var h = window.__HOST_AUDIO;
+					if (h && h.freqData) { arr.set(h.freqData.subarray(0, arr.length)); }
+					else { arr.fill(128); }
+				},
+				getByteTimeDomainData: function (arr) {
+					var h = window.__HOST_AUDIO;
+					if (h && h.waveData) { arr.set(h.waveData.subarray(0, arr.length)); }
+					else { arr.fill(128); }
+				},
+			};
+			analyser.fftSize = 1024;
+			var _audioEl = document.getElementById('mp3_player');
+			if (_audioEl) _audioEl.pause();
+			return;
+		}
 		if (State.protocol.indexOf('https') == -1) {
 			console.log("WARNING:: Accessing the microphone is only available using https://");
 		}
@@ -1415,7 +1442,7 @@
 		}
 	h.hideHUD = function() {
 		//$('.icon-knobs').is(':hover') || 
-		if ($('#mp3_player').is(':hover') || $('.dotstyle').is(':hover') || $('#slider').is(':hover') || $('#slider-volume').is(':hover') || $('.icon-expand').is(':hover') || $('.icon-github2').is(':hover') || $('.icon-loop-on').is(':hover') || $('.icon-question').is(':hover') || $('.icon-keyboard2').is(':hover') || $('.song-metadata').is(':hover') || $('.icon-forward2').is(':hover') || $('.icon-backward2').is(':hover') || $('.icon-pause').is(':hover') || $('.schover').is(':hover'))
+		if (false && ($('#mp3_player').is(':hover') || $('.dotstyle').is(':hover') || $('#slider').is(':hover') || $('#slider-volume').is(':hover') || $('.icon-expand').is(':hover') || $('.icon-github2').is(':hover') || $('.icon-loop-on').is(':hover') || $('.icon-question').is(':hover') || $('.icon-keyboard2').is(':hover') || $('.song-metadata').is(':hover') || $('.icon-forward2').is(':hover') || $('.icon-backward2').is(':hover') || $('.icon-pause').is(':hover') || $('.schover').is(':hover')))
 			return;
 
 		$('#mp3_player').addClass('fadeOut');
