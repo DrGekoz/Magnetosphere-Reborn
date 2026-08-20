@@ -109,6 +109,7 @@ class App {
       onApplyCustom: (name) => this.applyCustomPreset(name),
       onRandomize: () => this.randomize(),
       onResetAll: () => this.resetAll(),
+      getParams: () => this.params,
       onImportMilk: (name, data) => this.importMilk(name, data),
       onImportTheme: (name, data) => this.importTheme(name, data),
       onExportTheme: () => this.exportTheme(),
@@ -242,6 +243,8 @@ class App {
       // reset scene for mode
       this.scene.reset(this.params);
       this._toggleAudioMotion(val === 'audioMotion');
+      // per-template settings: rebuild the panel for the active template
+      this._applyTemplateForMode(val);
     }
     if (key === 'merge') {
       this.params.mergeAmount = val ? Math.max(this.params.mergeAmount, 0.2) : 0;
@@ -251,8 +254,16 @@ class App {
     this._ = old;
   }
 
-  _pushSceneConfig() {
-    this.scene.configure(this.themeScene);
+  // Map a visualMode -> template id, rebuild settings panel for that template
+  _applyTemplateForMode(mode) {
+    if (!window.__modules.templates || !this.ui) return;
+    const { TEMPLATES } = window.__modules.templates;
+    const id = ({ Blob: 'blob', Milk: 'milk', audioMotion: 'audiomotion', Bars: 'raymarch', Scope: 'raymarch', Plasma: 'raymarch', Fountain: 'raymarch' })[mode] || 'orbs';
+    const tpl = TEMPLATES.find((t) => t.id === id);
+    if (tpl) this.ui.setTemplate(tpl);
+  }
+
+  _pushSceneConfig() {    this.scene.configure(this.themeScene);
     this.scene.bandRGB = (band) => {
       const keys = [['band0HueStart', 'band0HueEnd', 'band0Sat', 'band0Light'], ['band1HueStart', 'band1HueEnd', 'band1Sat', 'band1Light'], ['band2HueStart', 'band2HueEnd', 'band2Sat', 'band2Light']];
       const k = keys[band];
@@ -592,13 +603,38 @@ class App {
     requestAnimationFrame((t2) => this.loop(t2));
   }
 
+  // ---- iframe template host (vendored repos run their native systems) ----
+  _showIframe(tplId, a) {
+    if (!this._iframeEl) {
+      const f = document.createElement('iframe');
+      f.id = 'tpl-frame';
+      f.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;border:0;z-index:4;background:#000;';
+      document.body.appendChild(f);
+      this._iframeEl = f;
+    }
+    const src = 'templates/' + tplId + '/index.html';
+    if (this._iframeSrc !== src) {
+      this._iframeEl.src = src;
+      this._iframeSrc = src;
+      this._iframeReady = false;
+    }
+    this._iframeEl.style.display = 'block';
+    if (a) {
+      const msg = { __mag: 'mag-audio', fft: a.fft, wave: a.wave, energy: a.energy, bass: a.bass, mid: a.mid, treble: a.treble, beat: a.beat };
+      try { this._iframeEl.contentWindow.postMessage(msg, '*'); } catch (e) {}
+    }
+  }
+
+  _hideIframe() {
+    if (this._iframeEl) this._iframeEl.style.display = 'none';
+  }
+
   _render(a, time, dt) {
     const gl = this.gl.gl;
     const eng = this.gl;
     const p = this.params;
     const vis = p.visualMode;
 
-    // ---- MilkDrop (butterchurn) path ----
     if (vis === 'Milk' && this.milk && this.milk.ready) {
       if (this.milk.setVisible) this.milk.setVisible(true);
       // butterchurn uses null audio + our getAudioLevels feed in milk.render()
@@ -614,6 +650,7 @@ class App {
     // ---- three.js path for orb modes ----
     const isOrbMode = vis === 'Orbs' || vis === 'Blob' || vis === undefined;
     if (isOrbMode && this.orb && this.orb.ready && p.useThree !== 0) {
+      this._hideIframe();
       this.orb.setLights(this.themeScene);
       this.orb.updateOrbs(this.scene.orbs, p, this._bandCols(), a.energy, a.beat);
       this.orb.updateParticles(this.scene.particles);
@@ -621,6 +658,14 @@ class App {
       // skip raymarch FBO path entirely
       return;
     }
+
+    // ---- iframe template path (vendored repos run their native systems) ----
+    const iframeTpl = { Blob: null, Milk: null, audioMotion: null, Bars: null, Scope: null, Plasma: null, Fountain: null, av3d: 'av3d', 'party-mode': 'party-mode' }[vis];
+    if (iframeTpl) {
+      this._showIframe(iframeTpl, a);
+      return;
+    }
+    this._hideIframe();
 
     const bandCols = this._bandCols();
     const bgCol = hsl2rgb(p.bgHue, p.bgSat, p.bgLight);

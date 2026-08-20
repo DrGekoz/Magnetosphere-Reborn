@@ -5,6 +5,7 @@
 // custom presets (localStorage), About modal with credits. No external deps.
 
 const { SECTIONS, PARAM_SCHEMA, DEFAULTS, MATERIALS, THEMES, hsl2rgb } = window.__modules.presets;
+const { TEMPLATES, TEMPLATE_SCHEMAS } = window.__modules.templates;
 
 // HeroIcons (outline) inline SVGs
 const ICONS = {
@@ -19,12 +20,18 @@ const ICONS = {
   info: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="ic"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"/></svg>',
   download: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="ic"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>',
   upload: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="ic"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>',
+  coffee: '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="ic"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M16.5 3v1.5m-2.25 13.5h-9m0 0a3 3 0 01-3-3V9h15v6a3 3 0 01-3 3m0 0v1.5M12 21v-3m6-6a3 3 0 013 3v1.5a3 3 0 01-3 3h-2.25"/></svg>',
 };
 
 const CREDITS = [
   { name: 'MilkDrop3', url: 'https://github.com/milkdrop2077/MilkDrop3', desc: 'Audio routing + preset concepts (WASAPI loopback, beat detection)' },
   { name: 'audioMotion-analyzer', url: 'https://github.com/hvianna/audioMotion-analyzer', desc: 'High-res audio spectrum analyzer (AGPL-3.0), integrated as a visual mode' },
   { name: 'party-mode / vizz.fm', url: 'https://github.com/preziotte/party-mode', desc: 'Browser music visualizer inspiration (d3.js / WebGL)' },
+  { name: 'Butterchurn', url: 'https://github.com/jberg/butterchurn', desc: 'MilkDrop2 shader engine (WebGL2), Milk visual mode + .milk import' },
+  { name: 'audio-visualizer-three-js', url: 'https://github.com/santosharron/audio-visualizer-three-js', desc: 'Frequency-blob technique (icosahedron displaced by FFT + noise)' },
+  { name: '3D Audio Visualizer', url: 'https://waelyasmina.net/articles/how-to-create-a-3d-audio-visualizer-using-three-js/', desc: 'Audio-reactive three.js techniques (AudioAnalyser + vertex displacement + UnrealBloom)' },
+  { name: 'three-particles', url: 'https://github.com/NewKrok/three-particles', desc: 'Particle system concepts (trails)' },
+  { name: '3D Game Shaders for Beginners', url: 'https://github.com/lettier/3d-game-shaders-for-beginners', desc: 'Post-processing effects (film grain, posterize, sharpen, pixelize)' },
   { name: 'The Book of Shaders', url: 'https://github.com/patriciogonzalezvivo/thebookofshaders', desc: 'Shader education & reference' },
   { name: 'tinyraytracer', url: 'https://github.com/ssloy/tinyraytracer', desc: 'Raytracing reference' },
   { name: 'The-Forge', url: 'https://github.com/ConfettiFX/The-Forge', desc: 'Cross-platform rendering framework (considered, not used)' },
@@ -67,8 +74,61 @@ class UI {
     this._bindPanel(panel);
   }
 
-  _panelHTML() {
+  // Rebuild the param sections from a template's schema (per-template params)
+  setTemplate(tpl) {
+    this._tpl = tpl;
+    const schema = (tpl && TEMPLATE_SCHEMAS[tpl.schemaId]) || { sections: SECTIONS, params: PARAM_SCHEMA };
+    const sections = schema.sections || SECTIONS;
+    const params = schema.params || PARAM_SCHEMA;
     const materials = Object.keys(MATERIALS).map((m) => `<option value="${m}">${m}</option>`).join('');
+    // rebuild the param sections container (between quick actions and import/export)
+    const cont = this.els['param-sections'];
+    if (!cont) return;
+    let html = '';
+    for (const sec of sections) {
+      html += `<div class="section"><div class="sec-label">${ICONS.palette} ${sec.label}</div>`;
+      const secParams = params.filter((p) => p.section === sec.id);
+      for (const p of secParams) {
+        if (p.key === 'material') {
+          html += `<div class="param"><label for="p-material">Material</label><select id="p-material" class="p-drop">${materials}</select></div>`;
+          continue;
+        }
+        html += this._paramHTML(p);
+      }
+      html += `</div>`;
+    }
+    cont.innerHTML = html;
+    // re-collect + bind the new param elements
+    this.els = {};
+    this.els['param-sections'] = cont;
+    cont.querySelectorAll('[id]').forEach((el) => { this.els[el.id] = el; });
+    this._bindParams(params);
+    // re-apply current values
+    if (this.cb && this.cb.getParams) this.setParams(this.cb.getParams());
+  }
+
+  _bindParams(params) {
+    for (const p of params) {
+      const el = this.els[`p-${p.key}`];
+      if (!el) continue;
+      if (p.type === 'slider') {
+        el.addEventListener('input', () => {
+          const v = parseFloat(el.value);
+          const valEl = this.els[`p-${p.key}-val`];
+          if (valEl) valEl.textContent = this._fmt(v);
+          this.cb.onChange(p.key, v);
+        });
+      } else if (p.type === 'toggle') {
+        el.addEventListener('change', () => this.cb.onChange(p.key, el.checked ? 1 : 0));
+      } else if (p.type === 'dropdown') {
+        el.addEventListener('change', () => this.cb.onChange(p.key, el.value));
+      }
+    }
+    const matEl = this.els['p-material'];
+    if (matEl) matEl.addEventListener('change', () => this.cb.onChange('material', matEl.value));
+  }
+
+  _panelHTML() {
     let html = `
       <div class="panel-head">
         <div class="panel-title">${ICONS.sparkles} Settings</div>
@@ -92,19 +152,8 @@ class UI {
           <button id="reset-all" class="mini-btn">Reset</button>
         </div>
       </div>
+      <div id="param-sections"></div>
     `;
-    for (const sec of SECTIONS) {
-      html += `<div class="section"><div class="sec-label">${ICONS.palette} ${sec.label}</div>`;
-      const params = PARAM_SCHEMA.filter((p) => p.section === sec.id);
-      for (const p of params) {
-        if (p.key === 'material') {
-          html += `<div class="param"><label for="p-material">Material</label><select id="p-material" class="p-drop">${materials}</select></div>`;
-          continue;
-        }
-        html += this._paramHTML(p);
-      }
-      html += `</div>`;
-    }
     html += `<div class="section" style="display:flex;gap:6px;flex-wrap:wrap">
       <button id="import-btn" class="mini-btn" style="flex:1">${ICONS.download} Import</button>
       <button id="export-btn" class="mini-btn" style="flex:1">${ICONS.upload} Export</button>
@@ -146,24 +195,8 @@ class UI {
     this._renderCats();
     this._renderThemeGrid();
 
-    for (const p of PARAM_SCHEMA) {
-      const el = this.els[`p-${p.key}`];
-      if (!el) continue;
-      if (p.type === 'slider') {
-        el.addEventListener('input', () => {
-          const v = parseFloat(el.value);
-          this.els[`p-${p.key}-val`].textContent = this._fmt(v);
-          this.cb.onChange(p.key, v);
-        });
-      } else if (p.type === 'toggle') {
-        el.addEventListener('change', () => this.cb.onChange(p.key, el.checked ? 1 : 0));
-      } else if (p.type === 'dropdown') {
-        el.addEventListener('change', () => this.cb.onChange(p.key, el.value));
-      }
-    }
-    // material dropdown bound to param key 'material'
-    const matEl = this.els['p-material'];
-    if (matEl) matEl.addEventListener('change', () => this.cb.onChange('material', matEl.value));
+    // initial param sections (default template schema)
+    this.setTemplate(TEMPLATES[0] || null);
 
     this._renderCustomPresets();
   }
@@ -319,6 +352,11 @@ class UI {
           <p class="about-title">Magnetosphere Reborn</p>
           <p class="about-sub">Real-time raymarched metaball music visualizer. Reacts to system audio, raytraced reflections, volumetric god rays, adaptive resolution. Single portable exe (Electron + WebGL2).</p>
           <p class="about-built">Built by DrGekoz</p>
+          <p class="about-links">
+            <a href="https://github.com/DrGekoz/Magnetosphere-Reborn" target="_blank">${ICONS.globe} GitHub</a>
+            &nbsp;·&nbsp;
+            <a href="https://www.buymeacoffee.com/drgekoz" target="_blank">${ICONS.coffee} Buy Me a Coffee</a>
+          </p>
           <div class="about-credits">${items}</div>
           <p class="about-license">audioMotion-analyzer is included under AGPL-3.0. Source available on request / at the project repo.</p>
         </div>

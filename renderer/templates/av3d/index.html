@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en" >
+<head>
+  <meta charset="UTF-8">
+  <title>Audio Visualizer based on Three.js</title>
+  <link href="https://fonts.googleapis.com/css?family=Saira" rel="stylesheet"><link rel="stylesheet" href="./style.css">
+  <style>#thefile, #audio, label.file { display: none !important; } #content { opacity: 0; } body { overflow: hidden; background: #000; }</style>
+</head>
+<body>
+<div id="content">
+    <label for="thefile" class="file"> Choose an audio file
+      <input type="file" id="thefile" accept="audio/*" />
+    </label>
+    <audio id="audio" controls></audio>
+    <div id="out"></div>
+  </div>
+<!-- vendored locally for offline use (credit: santosharron/audio-visualizer-three-js) -->
+<script src="./three84.min.js"></script>
+<script src="./OrbitControls.js"></script>
+<script src="./dat.gui.min.js"></script>
+<script src="./simplex-noise.min.js"></script>
+<script  src="./script.js"></script>
+<!-- bridge: receive audio levels from the host app and drive the analyser -->
+<script>
+(function () {
+  // The original script.js reads from an <audio> element via an AudioContext.
+  // We replace that path: the host posts FFT bins + wave data; we feed a
+  // shared AnalyserNode-style object into the same visual loop.
+  window.__HOST_AUDIO = {
+    freqData: new Uint8Array(512).fill(128),
+    waveData: new Uint8Array(1024).fill(128),
+    energy: 0, bass: 0, mid: 0, treble: 0, beat: 0,
+  };
+  window.addEventListener('message', (ev) => {
+    const d = ev.data;
+    if (!d || d.__mag !== 'mag-audio') return;
+    if (d.fft && window.__HOST_AUDIO.freqData.length === d.fft.length) {
+      window.__HOST_AUDIO.freqData.set(d.fft);
+    }
+    if (d.wave && window.__HOST_AUDIO.waveData.length === d.wave.length) {
+      window.__HOST_AUDIO.waveData.set(d.wave);
+    }
+    window.__HOST_AUDIO.energy = d.energy || 0;
+    window.__HOST_AUDIO.bass = d.bass || 0;
+    window.__HOST_AUDIO.mid = d.mid || 0;
+    window.__HOST_AUDIO.treble = d.treble || 0;
+    window.__HOST_AUDIO.beat = d.beat || 0;
+  });
+  // tell the host we're ready
+  window.parent.postMessage({ __mag: 'mag-ready', id: 'av3d' }, '*');
+})();
+</script>
+</body>
+</html>
