@@ -126,6 +126,11 @@ class App {
         // hide hint once fullscreen toggled (assume entering)
         if (this._fsHint) this._fsHint.style.display = 'none';
       }
+      // MilkDrop3-style shortcuts (credit: MilkDrop3 / BeatDrop)
+      if (e.key === 'c' || e.key === 'C') this.randomizeColors();
+      if (e.key === 'a' || e.key === 'A') this.cycleTheme(-1);
+      if (e.key === 'z' || e.key === 'Z') this.cycleTheme(1);
+      if (e.key === 'n' || e.key === 'N') { this.autoRotate = !this.autoRotate; this._beatCount = 0; }
     });
     if (window.electronAPI) {
       window.electronAPI.onCaptureScene((s) => { this.captureScene = s; this._captureT = 0; });
@@ -229,8 +234,7 @@ class App {
       this.params[`band${b}Light`] = 0.4 + Math.random() * 0.35;
     }
     this.params.lightAngle = Math.random();
-    this.params.godRays = 0.6 + Math.random() * 1.2;
-    this.params.swirl = Math.random() * 2;
+    this.params.godRays = 0.6 + Math.random() * 1.2;    this.params.swirl = Math.random() * 2;
     this.params.gravity = (Math.random() - 0.6) * 1.5;
     this.ui.setParams(this.params);
     this._pushSceneConfig();
@@ -243,6 +247,39 @@ class App {
     this._pushSceneConfig();
     this.scene.configure({});
     this.scene.reset(this.params);
+  }
+
+  // MilkDrop3-style: C = randomize colors (credit: MilkDrop3 / BeatDrop)
+  randomizeColors() {
+    for (let b = 0; b < 3; b++) {
+      const start = Math.random() * 360;
+      this.params[`band${b}HueStart`] = start;
+      this.params[`band${b}HueEnd`] = (start + 40 + Math.random() * 120) % 360;
+      this.params[`band${b}Sat`] = 0.7 + Math.random() * 0.3;
+    }
+    this.params.lightAngle = Math.random();
+    this.ui.setParams(this.params);
+    this._pushSceneConfig();
+  }
+
+  // MilkDrop3-style: A / Z = prev / next theme (credit: MilkDrop3)
+  cycleTheme(dir) {
+    const ids = THEMES.map((t) => t.id);
+    const cur = ids.indexOf((this.elsTheme && this.elsTheme.value) || this.currentThemeId || 'toxic');
+    const next = (cur + dir + ids.length) % ids.length;
+    this.applyTheme(themeById(ids[next]));
+    this.currentThemeId = ids[next];
+    this.ui.setParams(this.params);
+  }
+
+  // MilkDrop3-style: N = auto-rotate theme on beat (credit: MilkDrop3)
+  _beatAutoRotate() {
+    if (!this.autoRotate) return;
+    this._beatCount = (this._beatCount || 0) + 1;
+    if (this._beatCount >= 8) {
+      this._beatCount = 0;
+      this.cycleTheme(1);
+    }
   }
 
   saveCustomPreset(name, params) {
@@ -401,6 +438,9 @@ class App {
     }
 
     const a = this.audio.update(dt);
+
+    // MilkDrop3-style: N = auto-rotate theme every 8 beats
+    if (a.beat > 0.5) this._beatAutoRotate();
 
     // scene sim (skip in 2D modes? still run for particles)
     this.scene.update(dt, a, this.params, this.themeScene);

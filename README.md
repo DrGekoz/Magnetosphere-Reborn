@@ -158,6 +158,16 @@ npm start
 
 **Fullscreen:** `ALT+Enter` (a hint pill shows at the bottom when windowed; it hides itself in fullscreen and inside Wallpaper Engine). `ESC` quits.
 
+**Keyboard shortcuts** (MilkDrop3-style, credit: [MilkDrop3](https://github.com/milkdrop2077/MilkDrop3) / BeatDrop):
+
+| Key | Action |
+|---|---|
+| `C` | Randomize colors (shuffle the 3 band hues live) |
+| `A` / `Z` | Previous / next global theme |
+| `N` | Toggle auto-rotate theme every 8 beats |
+| `ALT+Enter` | Toggle fullscreen |
+| `ESC` | Close settings / quit |
+
 ### 🖥️ Wallpaper Engine
 
 The same exe works as a desktop wallpaper:
@@ -246,7 +256,7 @@ Built by **DrGekoz**. This project references and builds upon:
 
 | Project | URL | Used for |
 |---|---|---|
-| MilkDrop3 | https://github.com/milkdrop2077/MilkDrop3 | Audio routing + preset concepts (WASAPI loopback, beat detection) |
+| MilkDrop3 | https://github.com/milkdrop2077/MilkDrop3 | Audio routing + preset concepts (WASAPI loopback, beat detection); keyboard shortcuts (`C` randomize colors, `A`/`Z` prev/next preset, `N` auto-rotate on beat) |
 | audioMotion-analyzer | https://github.com/hvianna/audioMotion-analyzer | High-res spectrum analyzer, integrated as a visual mode (**AGPL-3.0**) |
 | party-mode / vizz.fm | https://github.com/preziotte/party-mode | Browser music visualizer inspiration |
 | The Book of Shaders | https://github.com/patriciogonzalezvivo/thebookofshaders | Shader education & reference |
