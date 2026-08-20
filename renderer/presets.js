@@ -48,6 +48,12 @@ const PARAM_SCHEMA = [
   { key: 'spawnSmall', label: 'Spawn Small Orbs', section: 'orbs', type: 'toggle', def: 1 },
   { key: 'spawnParticles', label: 'Orb Particles', section: 'orbs', type: 'toggle', def: 1 },
   { key: 'emitterRate', label: 'Particle Rate', section: 'orbs', type: 'slider', min: 0, max: 4, step: 0.1 },
+  // Hodgin hardening: Collider + Magnetosphere physics
+  { key: 'nbody', label: 'N-Body Gravity', section: 'orbs', type: 'slider', min: 0, max: 1.5, step: 0.05, desc: 'Orbs attract each other (Newtonian). Credit: R. Hodgin Collider' },
+  { key: 'collide', label: 'Collision Mass Transfer', section: 'orbs', type: 'toggle', def: 1, desc: 'Smaller orbs feed larger ones on impact. Credit: R. Hodgin Collider' },
+  { key: 'ignite', label: 'Ignition Threshold', section: 'orbs', type: 'slider', min: 0, max: 1.5, step: 0.05, desc: 'Big orbs ignite & emit. Over-critical orbs explode. Credit: R. Hodgin Collider' },
+  { key: 'fieldLines', label: 'Field Lines', section: 'orbs', type: 'slider', min: 0, max: 1.5, step: 0.05, desc: 'Magnetic filaments between charged orbs. Credit: R. Hodgin Magnetosphere' },
+  { key: 'charge', label: 'Orb Charge (audio-reactive)', section: 'orbs', type: 'slider', min: 0, max: 1.5, step: 0.05, desc: 'FFT assigns per-orb charge; audio drives force. Credit: R. Hodgin Magnetosphere' },
   // material
   { key: 'material', label: 'Material', section: 'material', type: 'dropdown', options: ['Wax', 'Black Hole', 'Classic', 'Molten Metal', 'Water', 'Honey', 'Blood'] },
   { key: 'reflect', label: 'Reflectivity', section: 'material', type: 'slider', min: 0, max: 1, step: 0.01 },
@@ -105,6 +111,8 @@ const DEFAULTS = {
   orbCount: 20, orbSize: 1.0, gravity: -0.25, magnetism: 0.5, swirl: 0.35,
   centerPull: 0.25, jitter: 0.4, heatLamp: 0, heatPower: 1.0,
   merge: 1, mergeAmount: 0.5, viscosity: 0.35, spawnSmall: 1, spawnParticles: 1, emitterRate: 1.2,
+  // Hodgin hardening (Collider + Magnetosphere): N-body gravity, collisions, ignition, field lines
+  nbody: 0.35, collide: 1, ignite: 0.9, fieldLines: 0.8, charge: 0.5,
   material: 'Classic',
   reflect: 0.5, rough: 0.35, emissive: 1.1, absorb: 0.3, refract: 0.2,
   lightAngle: 0.62, lightColHue: 80, lightColSat: 0.9, lightColLight: 0.95,

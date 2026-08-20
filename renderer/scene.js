@@ -15,6 +15,10 @@ class Orb {
     this.phase = Math.random() * Math.PI * 2;
     this.heat = 0.3;     // 0..1 lava-lamp heat
     this.temp = 0.3;
+    this.charge = (Math.random() - 0.5) * 2;  // Hodgin Magnetosphere: +/- charge
+    this.ignited = 0;    // Hodgin Collider: 0/1 ignited state
+    this.igniteAcc = 0;  // accumulates mass for ignition threshold
+    this._baseR = r;
   }
 }
 
@@ -220,6 +224,42 @@ class Scene {
         }
       }
 
+      // Hodgin Collider: N-body gravitational attraction (Newtonian, mass-weighted)
+      const nbody = p.nbody || 0;
+      if (nbody > 0) {
+        for (let j = i + 1; j < n; j++) {
+          const o2 = orbs[j];
+          const dx = o2.x - o.x, dy = o2.y - o.y, dz = o2.z - o.z;
+          const dd2 = dx*dx + dy*dy + dz*dz + 0.02;
+          const dd = Math.sqrt(dd2);
+          if (dd > 5 || dd < 0.15) continue;  // soft core, range limit
+          const f = nbody * 0.9 * dtc * (o.r * o.r * o2.r * o2.r) / dd2;
+          const fx = dx / dd * f, fy = dy / dd * f, fz = dz / dd * f;
+          o.vx += fx; o.vy += fy; o.vz += fz;
+          o2.vx -= fx; o2.vy -= fy; o2.vz -= fz;
+        }
+      }
+
+      // Hodgin Magnetosphere: audio-reactive charge force (attract/repel by charge sign)
+      const ch = p.charge || 0;
+      if (ch > 0 && emo > 0.01) {
+        // audio drives the charge strength (FFT energy per band)
+        const bandE = [a.bass || 0, a.mid || 0, a.treble || 0][o.band] || 0.1;
+        const q = o.charge * (0.4 + bandE * 1.6);
+        for (let j = i + 1; j < n; j++) {
+          const o2 = orbs[j];
+          const dx = o2.x - o.x, dy = o2.y - o.y, dz = o2.z - o.z;
+          const dd2 = dx*dx + dy*dy + dz*dz + 0.05;
+          const dd = Math.sqrt(dd2);
+          if (dd > 6 || dd < 0.2) continue;
+          const q2 = o2.charge * (0.4 + [a.bass || 0, a.mid || 0, a.treble || 0][o2.band] * 1.6);
+          const f = ch * 0.55 * dtc * (q * q2) / dd2;
+          const fx = dx / dd * f, fy = dy / dd * f, fz = dz / dd * f;
+          o.vx -= fx; o.vy -= fy; o.vz -= fz;   // opposite signs attract, same repel
+          o2.vx += fx; o2.vy += fy; o2.vz += fz;
+        }
+      }
+
       // jitter (idle life)
       if (jit > 0) {
         o.vx += (Math.random() - 0.5) * jit * dtc * 3.2 * musicSpeed;
@@ -256,6 +296,118 @@ class Scene {
       if (!o._baseR) o._baseR = o.r;
       // beat kick: sudden radial spike on beat
       if (a.beat > 0.6 && o._baseR) o.r = o._baseR * (1 + a.beat * 0.25 * (o.band === 0 ? 1 : 0.5));
+
+      // Hodgin Collider: collision mass transfer — small orbs feed big ones
+      // Also tracks igniteAcc for ignition threshold check below
+    }
+    // Collision pass (after all radii settled): N-body O(n²)
+    const collideOn = p.collide !== 0;
+    if (collideOn) {
+      for (let i = 0; i < n; i++) {
+        const o1 = orbs[i];
+        if (!o1) continue;
+        for (let j = i + 1; j < n; j++) {
+          const o2 = orbs[j];
+          if (!o2) continue;
+          const dx = o2.x - o1.x, dy = o2.y - o1.y, dz = o2.z - o1.z;
+          const dd = Math.sqrt(dx*dx + dy*dy + dz*dz) + 0.001;
+          const overlap = (o1.r + o2.r) - dd;
+          if (overlap > 0 && dd < o1.r + o2.r) {
+            // smaller feeds larger by a fraction of the small one's radius
+            let sm, lg;
+            if (o1.r <= o2.r) { sm = o1; lg = o2; } else { sm = o2; lg = o1; }
+            const transf = overlap * 0.4 * dtc;  // mass transfer rate
+            lg.r += transf * 0.8;   // big grows
+            sm.r -= transf * 0.95;  // small shrinks (keeps some mass in the system)
+            // clamp
+            if (sm.r < 0.03) sm.r = 0.03;
+            // impulse bounce (elastic-ish collision)
+            if (dd > 0.01) {
+              const nx = dx/dd, ny = dy/dd, nz = dz/dd;
+              const relVx = o1.vx - o2.vx, relVy = o1.vy - o2.vy, relVz = o1.vz - o2.vz;
+              const relVn = relVx*nx + relVy*ny + relVz*nz;
+              if (relVn > 0) {
+                const imp = relVn * 0.5 * dtc / (sm.r + lg.r);
+                sm.vx += nx*imp; sm.vy += ny*imp; sm.vz += nz*imp;
+                lg.vx -= nx*imp; lg.vy -= ny*imp; lg.vz -= nz*imp;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Hodgin Collider: Ignition + Explosion — big orbs accumulate, ignite, then explode & release mass
+    const igniteThresh = p.ignite || 0.9;
+    if (igniteThresh > 0 && n > 1) {
+      for (let i = 0; i < n; i++) {
+        const o = orbs[i];
+        if (!o) continue;
+        // accumulate mass proportional to radius (bigger = faster growth)
+        o.igniteAcc += dtc * (o.r / igniteThresh) * 0.5;
+        // check ignition threshold
+        if (o.igniteAcc >= igniteThresh) {
+          // OVER-CRITICAL: EXPLODE — burst particles + release small orbs back into system
+          const col = this._bandRGB(o.band);
+          const count = Math.min(12, Math.max(3, Math.floor(o.r * 8)));
+          for (let k = 0; k < count; k++) {
+            this.spawnParticle(o.x, o.y, o.z, [col[0], col[1] * 0.7, col[2] * 0.6], 0.04, 1.0);
+            const pn = this.particles[this.particles.length - 1];
+            const ang = (k / count) * Math.PI * 2;
+            const sp = (0.5 + Math.random() * 1.5) * (1 + emo);
+            pn.vx = Math.cos(ang) * sp;
+            pn.vy = Math.sin(ang * 0.5) * sp * 0.3 + (Math.random() - 0.5) * sp;
+            pn.vz = Math.sin(ang) * sp;
+            pn.life = 0.5 + Math.random() * 0.8;
+          }
+          // release small orbs from exploded mass (Collider: mass returns to simulation)
+          const released = Math.min(3, Math.max(1, Math.floor(o.r * 2)));
+          for (let r = 0; r < released && orbs.length < MAX_ORBS; r++) {
+            const nr = 0.04 + Math.random() * 0.04;
+            const mo = new Orb(
+              o.x + (Math.random() - 0.5) * 0.3,
+              o.y + (Math.random() - 0.5) * 0.3,
+              o.z + (Math.random() - 0.5) * 0.3,
+              nr * (p.orbSize || 1)
+            );
+            mo.band = o.band;
+            mo.charge = o.charge;  // inherited charge
+            mo.emitter = true;
+            mo._baseR = mo.r;
+            mo.phase = Math.random() * Math.PI * 2;
+            orbs.push(mo);
+          }
+          // shrink the exploding orb to a medium size (not destroy it — it reforms)
+          o.r *= 0.4;
+          o.igniteAcc = 0;
+          // visual flash: big beat on explosion
+          if (a.beat < o.r * 0.5) o.ignited = 1;
+        } else if (o.r >= igniteThresh * 0.7) {
+          // IGNITED state: just below critical, glow brighter
+          o.ignited = 1;
+        } else {
+          o.ignited = Math.max(0, o.ignited - dtc * 2);  // fade out
+        }
+      }
+    }
+
+    // sparkles on ignited orbs
+    if (igniteThresh > 0) {
+      for (let i = 0; i < n; i++) {
+        const o = orbs[i];
+        if (!o || !o.ignited) continue;
+        this._sparkleAcc += dtc * o.ignited * 3;
+        if (this._sparkleAcc > 0.05 && orbs.length < MAX_ORBS) {
+          this._sparkleAcc = 0;
+          const col = this._bandRGB(o.band);
+          this.spawnParticle(o.x, o.y, o.z, col, 0.02, 0.7);
+          const pn = this.particles[this.particles.length - 1];
+          pn.vx = (Math.random() - 0.5) * 0.8;
+          pn.vy = Math.abs(Math.random()) * 0.5;
+          pn.vz = (Math.random() - 0.5) * 0.8;
+          pn.life = 0.3 + Math.random() * 0.5;
+        }
+      }
     }
 
     // spawn small orbs occasionally (larger orbs birth them)
