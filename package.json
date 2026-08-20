@@ -1,0 +1,44 @@
+{
+  "name": "itunes-visualizer",
+  "productName": "iTunes Visualizer",
+  "version": "1.0.0",
+  "description": "Real-time raymarched metaball music visualizer. Reacts to system audio, raytraced reflections, volumetric god rays, adaptive resolution. Single portable exe.",
+  "author": "DrGekoz",
+  "license": "AGPL-3.0",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "capture": "electron . --capture",
+    "dist": "electron-builder --win portable",
+    "dist:dir": "electron-builder --win dir"
+  },
+  "devDependencies": {
+    "electron": "^37.0.0",
+    "electron-builder": "^26.0.0"
+  },
+  "build": {
+    "appId": "com.gekoz.itunesvisualizer",
+    "productName": "iTunes Visualizer",
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "iTunes-Visualizer-${version}.exe"
+    },
+    "portable": {
+      "artifactName": "iTunes-Visualizer.exe"
+    },
+    "compression": "normal",
+    "asar": true
+  }
+}
