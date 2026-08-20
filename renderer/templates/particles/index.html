@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Interactive Particles</title>
+<style>
+* { margin:0; padding:0; }
+body { background:#000; overflow:hidden; width:100vw; height:100vh; }
+canvas { display:block; width:100%; height:100%; position:absolute; top:0; left:0; }
+</style>
+</head>
+<body>
+<canvas id="p-canvas"></canvas>
+<script>
+// Interactive Particles Music Visualizer — pure WebGL
+// Based on Codrops/Tiago Canzian approach — Credit: Coala Music/ARKx, Three.js
+(function(){
+'use strict';
+var gl = null, program = null;
+var canvas = document.getElementById('p-canvas');
+if (!canvas) return;
+
+// WebGL setup
+try { gl = canvas.getContext('webgl2') || canvas.getContext('webgl'); } catch(e) {}
+if (!gl) { console.error('[particles] no WebGL'); return; }
+
+// ---- Simple shaders (sine-based displacement, no noisy noise functions) ----
+var VS = [
+  'attribute vec3 aPos;',
+  'varying float vDist;',
+  'uniform mat4 uProjMat, uViewMat;',
+  'uniform float uTime, uFreq, uAmp, uSpeed, uBeat;',
+  '',
+  'void main(){',
+  // Displace vertices using sine waves based on audio frequency
+  'float t=uTime*uSpeed;',
+  'float f=uFreq;',
+  'vec3 p=pos;',
+  // Add sine-wave displacement (noise-like effect)
+  'p+=vec3(sin(p.x*f+t),cos(p.y*f+t*0.7),sin(p.z*f+t*1.3))*uAmp*0.15;',
+  // Beat pulse expansion
+  'p*=1.+uBeat*0.3;',
+  'vDist=length(p)*0.1+uBeat;',
+  'gl_Position=uProjMat*uViewMat*vec4(p,1.);',
+  'gl_PointSize=mix(1.,4.,vDist);',
+  '}'
+].join('\n');
+
+var FS = [
+  'precision mediump float;',
+  'varying float vDist;',
+  'uniform vec3 uCol1, uCol2, uBeatColor;',
+  '',
+  'void main(){',
+  '  // Gradient from col1 to col2 based on distance',
+  '  vec3 col=mix(uCol1,uCol2,vDist);',
+  // Add bright flash on beats
+  '  col+=uBeatColor*(1.-vDist)*0.6*uBeat;',
+  // Fade edges for soft glow
+  '  float alpha=(1.-vDist*0.5)*(1.-smoothstep(0.7,1.,vDist));',
+  '  gl_FragColor=vec4(col,alpha*0.9);',
+  '}'
+].join('\n');
+
+function compileShader(src, type) {
+  var s = gl.createShader(type);
+  gl.shaderSource(s, src);
+  gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+    console.error('[particles]', gl.getShaderInfoLog(s));
+    return null;
+  }
+  return s;
+}
+
+var vs = compileShader(VS, gl.VERTEX_SHADER);
+var fs = compileShader(FS, gl.FRAGMENT_SHADER);
+if (!vs || !fs) return;
+
+program = gl.createProgram();
+gl.attachShader(program, vs);
+gl.attachShader(program, fs);
+gl.linkProgram(program);
+if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+  console.error('[particles] link:', gl.getProgramInfoLog(program));
+  return;
+}
+
+// Uniform locations
+var uTime = gl.getUniformLocation(program, 'uTime');
+var uFreq = gl.getUniformLocation(program, 'uFreq');
+var uAmp = gl.getUniformLocation(program, 'uAmp');
+var uSpeed = gl.getUniformLocation(program, 'uSpeed');
+var uBeat = gl.getUniformLocation(program, 'uBeat');
+var uProjMat = gl.getUniformLocation(program, 'uProjMat');
+var uViewMat = gl.getUniformLocation(program, 'uViewMat');
+var uCol1 = gl.getUniformLocation(program, 'uCol1');
+var uCol2 = gl.getUniformLocation(program, 'uCol2');
+var uBeatColor = gl.getUniformLocation(program, 'uBeatColor');
+var aPos = gl.getAttribLocation(program, 'aPos');
+
+// Generate cylinder ring geometry (points arranged in torus shape)
+var N = 12000;
+var posData = new Float32Array(N * 3);
+for (var i = 0; i < N; i++) {
+  var theta = (i / N) * Math.PI * 2;
+  var phi = (Math.random() - 0.5) * Math.PI * 0.6;
+  var r = 1 + Math.sin(theta * 4) * 0.25 + Math.sin(theta * 7) * 0.1;
+  posData[i*3] = r * Math.cos(theta) * Math.cos(phi);
+  posData[i*3+1] = Math.sin(phi) * 0.4 + Math.sin(theta*3)*0.15;
+  posData[i*3+2] = r * Math.sin(theta) * Math.cos(phi);
+}
+
+var buf = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+gl.bufferData(gl.ARRAY_BUFFER, posData, gl.STATIC_DRAW);
+
+// Color helpers
+function hexToRGB(hex) {
+  var n = parseInt(hex, 16);
+  return [(n>>16&255)/255, (n>>8&255)/255, (n&255)/255];
+}
+
+// State
+var param = {
+  freq: 2, amp: 1, speed: 0.3,
+  startColor: 'ff00ff', endColor: '00ffff',
+  beatColor: 'ffffff'
+};
+var uniforms = {
+  col1: hexToRGB(param.startColor),
+  col2: hexToRGB(param.endColor),
+  beatCol: [0,0,0]
+};
+var hostAudio = { energy:0, bass:0, mid:0, treble:0, freqData:null };
+var timeVal = 0, beatCount = 0, lastBeatTime = 0;
+
+// Audio listener
+window.addEventListener('message', function(ev) {
+  var d = ev.data;
+  if (!d || d.__mag!=='mag-audio') return;
+  if (d.freqData) hostAudio.freqData = d.freqData;
+  hostAudio.energy = d.energy||0; hostAudio.bass = d.bass||0;
+  hostAudio.mid = d.mid||0; hostAudio.treble = d.treble||0;
+});
+
+// Params listener
+window.addEventListener('message', function(ev) {
+  var d = ev.data;
+  if (!d || d.__mag!=='mag-particles-params') return;
+  Object.assign(param, d.params||{});
+  try {
+    uniforms.col1 = hexToRGB(param.startColor||'ff00ff');
+    uniforms.col2 = hexToRGB(param.endColor||'00ffff');
+  } catch(e) {}
+  uniforms.beatCol = hexToRGB(param.beatColor||'ffffff');
+});
+
+// Resize
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  gl.viewport(0, 0, canvas.width, canvas.height);
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// Matrix math
+function mat4Perspective(fov, aspect, near, far) {
+  var f=1/Math.tan(fov/2), nf=1/(near-far);
+  return new Float32Array([f/aspect,0,0,0, 0,f,0,0, 0,0,(far+near)*nf,-1, 0,0,2*far*near*nf,0]);
+}
+function mat4LookAt(eye, center, up) {
+  var zx=eye[0]-center[0], zy=eye[1]-center[1], zz=eye[2]-center[2];
+  var len=1/Math.sqrt(zx*zx+zy*zy+zz*zz);
+  var fz=[zx*len,zy*len,zz*len];
+  var sx=up[1]*fz[2]-up[2]*fz[1], sy=up[2]*fz[0]-up[0]*fz[2], sz=up[0]*fz[1]-up[1]*fz[0];
+  len=1/Math.sqrt(sx*sx+sy*sy+sz*sz);
+  var fs=[sx*len,sy*len,sz*len];
+  var ux=fz[1]*fs[2]-fz[2]*fs[1], uy=fz[2]*fs[0]-fz[0]*fs[2], uz=fz[0]*fs[1]-fz[1]*fs[0];
+  return new Float32Array([fs[0],ux,fz[0],0, fs[1],uy,fz[1],0, fs[2],uz,fz[2],0,
+    -(fs[0]*eye[0]+fs[1]*eye[1]+fs[2]*eye[2]),-(ux*eye[0]+uy*eye[1]+uz*eye[2]),-(fz[0]*eye[0]+fz[1]*eye[1]+fz[2]*eye[2]),1]);
+}
+
+// Slow camera orbit
+var camAngle = 0;
+
+// ---- Main render loop ----
+gl.enable(gl.BLEND);
+gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+function loop(ts) {
+  requestAnimationFrame(loop);
+  
+  // Time increment (audio-reactive speed)
+  var lowEnergy = hostAudio.freqData ? hostAudio.freqData[0]/255 : 0;
+  var speedMult = param.speed || 0.3;
+  timeVal += (0.2 + lowEnergy * 0.5 * speedMult) * (1/60) * 60;
+  camAngle += 0.003 * (1 + lowEnergy * 2);
+  
+  // Audio reactivity
+  var smooth = 0.15;
+  var targetFreq = 0.5 + lowEnergy * 3;
+  var targetAmp = 0.5 + (hostAudio.treble||0) * 1.5;
+  var curFreq = param.freq || 2;
+  var curAmp = param.amp || 1;
+  param.freq += (targetFreq - curFreq) * smooth;
+  param.amp += (targetAmp - curAmp) * smooth;
+  
+  // Beat detection
+  var beat = 0;
+  if (hostAudio.energy > 0.55 && performance.now() - lastBeatTime > 400) {
+    lastBeatTime = performance.now();
+    beatCount++;
+    beat = 1;
+    // Flash beat color
+    uniforms.beatCol = [1,1,1];
+    
+    // Every 8 beats change colors dynamically
+    if (beatCount % 8 === 0) {
+      var hue1 = Math.random()*360;
+      var hue2 = (hue1 + 120 + Math.random()*60) % 360;
+      // Convert HSL to RGB manually
+      param.startColor = rgbToHex(hslToRgb(hue1/360, 1, 0.5));
+      param.endColor = rgbToHex(hslToRgb(hue2/360, 1, 0.5));
+      uniforms.col1 = hslToRgb(hue1/360, 1, 0.5);
+      uniforms.col2 = hslToRgb(hue2/360, 1, 0.5);
+    }
+  } else {
+    // Fade beat color back
+    for (var k=0; k<3; k++) uniforms.beatCol[k] *= 0.9;
+  }
+  
+  // Set uniforms
+  gl.useProgram(program);
+  gl.uniform1f(uTime, timeVal);
+  gl.uniform1f(uFreq, param.freq);
+  gl.uniform1f(uAmp, param.amp);
+  gl.uniform1f(uSpeed, speedMult);
+  gl.uniform1f(uBeat, beat);
+  gl.uniform3fv(uCol1, uniforms.col1);
+  gl.uniform3fv(uCol2, uniforms.col2);
+  gl.uniform3fv(uBeatColor, uniforms.beatCol);
+  
+  // Matrices (camera orbits slowly)
+  var proj = mat4Perspective(Math.PI/4, canvas.width/canvas.height, 0.1, 100);
+  gl.uniformMatrix4fv(uProjMat, false, proj);
+  
+  // Orbit camera
+  var cx = Math.sin(camAngle) * 14;
+  var cz = Math.cos(camAngle) * 14;
+  var view = mat4LookAt([cx, 1, cz], [0,0,0], [0,1,0]);
+  gl.uniformMatrix4fv(uViewMat, false, view);
+  
+  // Bind attributes
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.enableVertexAttribArray(aPos);
+  gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, 0, 0);
+  
+  // Draw
+  gl.drawArrays(gl.POINTS, 0, N);
+}
+
+loop(performance.now());
+
+// HSL to RGB helper
+function hslToRgb(h,s,l){
+  var r,g,b;
+  if(s===0){r=g=b=l;}else{
+    var hue2rgb=function(p,q,t){
+      if(t<0)t+=1;if(t>1)t-=1;
+      if(t<1/6)return p+(q-p)*6*t;
+      if(t<1/2)return q;
+      if(t<2/3)return p+(q-p)*(2/3-t)*6;
+      return p;
+    };
+    var q=l<0.5?l*(1+s):l+s-l*s;
+    var p=2*l-q;
+    r=hue2rgb(p,q,h+1/3);
+    g=hue2rgb(p,q,h);
+    b=hue2rgb(p,q,h-1/3);
+  }
+  return [r,g,b];
+}
+
+function rgbToHex(r,g,b){
+  return ((1<<24)+(Math.round(r*255)<<16)+(Math.round(g*255)<<8)+Math.round(b*255)).toString(16).substring(1);
+}
+
+// Signal ready
+try { window.parent.postMessage({__mag:'mag-particles-ready'}, '*'); } catch(e) {}
+})();
+</script>
+</body>
+</html>

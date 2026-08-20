@@ -26,6 +26,15 @@ class App {
     // MilkDrop engine (butterchurn) — for 'Milk' visual mode + imported .milk presets
     this.milk = null;
     this._milkPreset = null;
+    // Interactive Particles engine (Codrops/Tiago Canzian — simplex noise point cloud)
+    this.particlesReady = false;
+    try {
+      const PE = window.__modules['particles'];
+      if (PE && PE.default) {
+        // Iframe template: main.js waits for mag-three message from renderer/three-orb.js
+        this.particlesReady = true;
+      }
+    } catch (e) { console.log('particles unavailable:', e.message); }
     try {
       const MilkEngine = window.__modules['milk'];
       if (MilkEngine) {
@@ -259,7 +268,7 @@ class App {
   _applyTemplateForMode(mode) {
     if (!window.__modules.templates || !this.ui) return;
     const { TEMPLATES } = window.__modules.templates;
-    const id = ({ Blob: 'blob', Milk: 'milk', audioMotion: 'audiomotion', av3d: 'av3d', 'party-mode': 'party-mode', Bars: 'raymarch', Scope: 'raymarch', Plasma: 'raymarch', Fountain: 'raymarch' })[mode] || 'orbs';
+    const id = ({ Blob: 'blob', Milk: 'milk', audioMotion: 'audiomotion', av3d: 'av3d', 'party-mode': 'party-mode', particles: 'particles', Bars: 'raymarch', Scope: 'raymarch', Plasma: 'raymarch', Fountain: 'raymarch' })[mode] || 'orbs';
     const tpl = TEMPLATES.find((t) => t.id === id);
     if (tpl) this.ui.setTemplate(tpl);
   }
@@ -281,6 +290,8 @@ class App {
       this.setParam('visualMode', 'Milk');
     } else if (tpl.id === 'audiomotion') {
       this.setParam('visualMode', 'audioMotion');
+    } else if (tpl.id === 'particles') {
+      this.setParam('visualMode', 'Particles');
     } else if (tpl.id === 'raymarch') {
       this.setParam('visualMode', 'Bars');
     }
@@ -632,6 +643,14 @@ class App {
       const f = document.createElement('iframe');
       f.id = 'tpl-frame';
       f.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;border:0;z-index:4;background:#000;';
+      // Listen for iframe ready signals (particles sends mag-particles-ready)
+      window.addEventListener('message', (ev) => {
+        const d = ev.data;
+        if (d && d.__mag === 'mag-particles-ready') {
+          // Send params to particles template
+          try { this._iframeEl.contentWindow.postMessage({ __mag: 'mag-particles-params', params: this._getParticlesParams() }, '*'); } catch(e) {}
+        }
+      });
       document.body.appendChild(f);
       this._iframeEl = f;
     }
@@ -640,11 +659,32 @@ class App {
       this._iframeEl.src = src;
       this._iframeSrc = src;
       this._iframeReady = false;
+      
+      // Listen for iframe load → resize canvas when it's ready
+      this._iframeEl.onload = () => {
+        try {
+          var doc = this._iframeEl.contentDocument || this._iframeEl.contentWindow?.document;
+          if (doc && tplId === 'particles') {
+            var c = doc.getElementById('p-canvas');
+            if (c) {
+              c.width = document.body.clientWidth;
+              c.height = document.body.clientHeight;
+              // Notify iframe to redraw
+              this._iframeEl.contentWindow.postMessage({ __mag: 'mag-particles-resize', w: c.width, h: c.height }, '*');
+            }
+          }
+          this._iframeReady = true;
+        } catch(e) { /* cross-origin or other error */ }
+      };
     }
     this._iframeEl.style.display = 'block';
     if (a) {
       const msg = { __mag: 'mag-audio', fft: a.fft, wave: a.wave, energy: a.energy, bass: a.bass, mid: a.mid, treble: a.treble, beat: a.beat };
       try { this._iframeEl.contentWindow.postMessage(msg, '*'); } catch (e) {}
+    }
+    // Send params to particles/av3d templates
+    if (tplId === 'particles' || tplId === 'av3d') {
+      try { this._iframeEl.contentWindow.postMessage({ __mag: 'mag-' + tplId + '-params', params: this._getTemplateParams(tplId) }, '*'); } catch (e) {}
     }
   }
 
@@ -683,7 +723,9 @@ class App {
     }
 
     // ---- iframe template path (vendored repos run their native systems) ----
-    const iframeTpl = { Blob: null, Milk: null, audioMotion: null, Bars: null, Scope: null, Plasma: null, Fountain: null, av3d: 'av3d', 'party-mode': 'party-mode' }[vis];
+    const iframeTplKey = vis.toLowerCase();
+    const iframeMap = { blob: null, milk: null, audiomotion: null, bars: null, scope: null, plasma: null, fountain: null, av3d: 'av3d', 'party-mode': 'party-mode', particles: 'particles' };
+    const iframeTpl = iframeMap[iframeTplKey];
     if (iframeTpl) {
       this._showIframe(iframeTpl, a);
       return;

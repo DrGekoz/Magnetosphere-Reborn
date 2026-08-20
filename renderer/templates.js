@@ -190,6 +190,25 @@
         { key: 'showFPS', label: 'Show FPS', section: 'perf', type: 'toggle', def: 0 },
       ],
     },
+    // ---- particles (Interactive Particles — Codrops/Tiago Canzian) ----
+    particles: {
+      sections: [
+        { id: 'colors', label: 'COLORS' },
+        { id: 'particles', label: 'PARTICLES' },
+        { id: 'audio', label: 'AUDIO' },
+        { id: 'perf', label: 'PERFORMANCE' },
+      ],
+      params: [
+        { key: 'startColor', label: 'Start Color (Hex)', section: 'colors', type: 'text', placeholder: 'ff00ff' },
+        { key: 'endColor', label: 'End Color (Hex)', section: 'colors', type: 'text', placeholder: '00ffff' },
+        { key: 'particleFrequency', label: 'Noise Frequency', section: 'particles', type: 'slider', min: 0.5, max: 5, step: 0.1 },
+        { key: 'particleAmplitude', label: 'Displacement Amount', section: 'particles', type: 'slider', min: 0, max: 3, step: 0.1 },
+        { key: 'particleSpeed', label: 'Time Speed', section: 'particles', type: 'slider', min: 0.1, max: 1, step: 0.05 },
+        { key: 'sensitivity', label: 'Audio Sensitivity', section: 'audio', type: 'slider', min: 0.1, max: 4, step: 0.05 },
+        { key: 'targetFPS', label: 'Target FPS', section: 'perf', type: 'slider', min: 30, max: 240, step: 5 },
+        { key: 'showFPS', label: 'Show FPS', section: 'perf', type: 'toggle', def: 0 },
+      ],
+    },
   };
   // 'thumb' = path to a static thumbnail (from the repo README where available).
   const TEMPLATES = [
@@ -200,6 +219,7 @@
     { id: 'raymarch', name: 'Raymarch', category: 'Core', engine: 'raymarch', schemaId: 'orbs', desc: 'Original raymarched metaball field.', thumb: '' },
     { id: 'av3d', name: 'Three.js Visualizer', category: 'Community', engine: 'iframe', schemaId: 'av3d', desc: 'Frequency-displaced icosahedron + wireframe planes (audio-visualizer-three-js).', thumb: 'templates/thumbs/av3d.png' },
     { id: 'party-mode', name: 'party-mode', category: 'Community', engine: 'iframe', schemaId: 'party', desc: 'D3 hexbin + waveform visualizations (preziotte/party-mode).', thumb: 'templates/thumbs/party-mode.png' },
+    { id: 'particles', name: 'Interactive Particles', category: 'Community', engine: 'particles', schemaId: 'particles', desc: 'Noise-displaced audio-reactive point cloud (Codrops/Tiago Canzian).', thumb: '' },
   ];
 
   // Static thumbs (extracted from repo READMEs) live in renderer/templates/thumbs/<id>.png
