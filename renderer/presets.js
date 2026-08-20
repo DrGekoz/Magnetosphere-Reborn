@@ -82,7 +82,7 @@ const PARAM_SCHEMA = [
   { key: 'chromatic', label: 'Chromatic Aberration', section: 'fx', type: 'slider', min: 0, max: 1, step: 0.01 },
   { key: 'beatFlash', label: 'Beat Flash', section: 'fx', type: 'slider', min: 0, max: 1, step: 0.01 },
   { key: 'motionBlur', label: 'Trail Persistence', section: 'fx', type: 'slider', min: 0.5, max: 0.99, step: 0.01 },
-  { key: 'visualMode', label: 'Visual Mode', section: 'fx', type: 'dropdown', options: ['Orbs', 'Blob', 'Bars', 'Scope', 'Plasma', 'Fountain', 'audioMotion'] },
+  { key: 'visualMode', label: 'Visual Mode', section: 'fx', type: 'dropdown', options: ['Orbs', 'Blob', 'Milk', 'Bars', 'Scope', 'Plasma', 'Fountain', 'audioMotion'] },
   // audio
   { key: 'sensitivity', label: 'Sensitivity', section: 'audio', type: 'slider', min: 0.1, max: 4, step: 0.05 },
   { key: 'smoothing', label: 'Smoothing', section: 'audio', type: 'slider', min: 0.05, max: 0.95, step: 0.01 },

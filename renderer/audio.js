@@ -71,6 +71,25 @@ class AudioEngine {
   }
 
   // one-frame update; returns {energy,bass,mid,treble,beat, fft, wave}
+  getAudioLevels() {
+    // butterchurn/MilkDrop2 expects {timeByteArray, timeByteArrayL, timeByteArrayR}
+    if (!this.analyser) {
+      const zero = new Uint8Array(2048);
+      return { timeByteArray: zero, timeByteArrayL: zero, timeByteArrayR: zero };
+    }
+    const L = new Uint8Array(this.analyser.fftSize);
+    const R = new Uint8Array(this.analyser.fftSize);
+    try {
+      this.analyser.getByteTimeDomainData(this.wave || L);
+      this.analyser.getByteTimeDomainData(L);
+      this.analyser.getByteTimeDomainData(R);
+    } catch (e) {}
+    return { timeByteArray: this.wave || L, timeByteArrayL: L, timeByteArrayR: R };
+  }
+
+  // butterchurn wants `numSamps` too
+  get numSamps() { return this.analyser ? this.analyser.frequencyBinCount : 512; }
+
   update(dt) {
     const p = this.getParams();
     if (this.demo) {

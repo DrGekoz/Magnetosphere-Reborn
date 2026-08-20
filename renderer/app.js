@@ -23,6 +23,19 @@ class App {
         if (!this.orb.ready) this.orb = null;
       }
     } catch (e) { this.orb = null; console.log('three-orb unavailable:', e.message); }
+    // MilkDrop engine (butterchurn) — for 'Milk' visual mode + imported .milk presets
+    this.milk = null;
+    this._milkPreset = null;
+    try {
+      const MilkEngine = window.__modules['milk'];
+      if (MilkEngine) {
+        const me = new MilkEngine(this.canvas, this.audio);
+        const ok = me.init(window.devicePixelRatio || 1);
+        if (ok || me.pending) {
+          this.milk = me;   // keep even if pending (audio wired later -> re-init)
+        }
+      }
+    } catch (e) { this.milk = null; console.log('milk unavailable:', e.message); }
     this.params = Object.assign({}, DEFAULTS);
     this.scene = new Scene();
     this.ui = null;
@@ -96,12 +109,48 @@ class App {
       onApplyCustom: (name) => this.applyCustomPreset(name),
       onRandomize: () => this.randomize(),
       onResetAll: () => this.resetAll(),
+      onImportMilk: (name, data) => this.importMilk(name, data),
+      onImportTheme: (name, data) => this.importTheme(name, data),
+      onExportTheme: () => this.exportTheme(),
+      getImportedThemes: () => this._importedThemes || [],
       onQuit: () => { if (window.electronAPI) window.electronAPI.quit(); },
     });
 
     // audio
     this.audio = new AudioEngine(() => this.params);
-    this.audio.start(this.params.audioSource);
+    // milk re-init needs the AudioContext, so wait for audio.start to settle
+    const wireMilk = () => {
+      if (!this.milk) return;
+      this.milk.audio = this.audio;
+      if (this.milk.pending && !this.milk.ready && this.milk.init) {
+        this.milk.pending = false;
+        this.milk.ready = this.milk.init(window.devicePixelRatio || 1);
+        if (this.milk.ready) {
+          // load a default preset pack so Milk mode works out of the box
+          const packs = [window.butterchurnPresetsMinimal, window.butterchurnPresetsNonMinimal, window.butterchurnPresetsExtra];
+          for (const p of packs) {
+            let mod = p;
+            // the UMD export carries getPresets directly; calling the factory may
+            // throw under CSP (new Function blocked), so check it first
+            if (mod && typeof mod.getPresets !== 'function' && typeof mod === 'function') {
+              try { mod = mod(); } catch (e) { /* CSP blocks new Function — skip */ }
+            }
+            if (mod && mod.default) mod = mod.default;
+            if (mod && typeof mod.getPresets === 'function') {
+              const presets = mod.getPresets();
+              const keys = Object.keys(presets);
+              if (keys.length) { this._milkPreset = presets[keys[Math.floor(Math.random() * keys.length)]]; break; }
+            }
+          }
+          if (this._milkPreset) this.milk.loadPreset(this._milkPreset);
+        }
+      }
+    };
+    Promise.resolve(this.audio.start(this.params.audioSource)).then(() => {
+      wireMilk();
+      // double-tap in case demo path creates ctx async
+      setTimeout(wireMilk, 300);
+    });
 
     // fullscreen hint (hidden in wallpaper mode)
     this._wallpaperMode = false;
@@ -323,6 +372,57 @@ class App {
     this.scene.reset(this.params);
   }
 
+  // ---- Import / Export ----
+  importMilk(name, data) {
+    // .milk preset -> load into butterchurn + add as an 'Imported' theme entry
+    this._milkPreset = data;
+    this.params.visualMode = 'Milk';
+    this.ui.setParams(this.params);
+    if (this.milk) this.milk.loadPreset(data);
+    // persist imported milk preset
+    try {
+      const imported = JSON.parse(localStorage.getItem('itv-imported-milk') || '[]');
+      imported.push({ name, data });
+      localStorage.setItem('itv-imported-milk', JSON.stringify(imported));
+    } catch (e) {}
+    this._addImportedTheme(name.replace(/\.milk$/i, ''), { visualMode: 'Milk' });
+  }
+
+  importTheme(name, data) {
+    // theme .json -> add as an imported theme (params + scene)
+    this._addImportedTheme(name.replace(/\.json$/i, ''), data);
+  }
+
+  _addImportedTheme(name, themeData) {
+    if (!this._importedThemes) this._importedThemes = [];
+    const t = {
+      id: 'imported-' + Date.now(),
+      name: name || 'Imported Theme',
+      category: 'Imported',
+      mode: themeData.visualMode || 'orbs',
+      desc: 'Imported theme',
+      params: Object.assign({}, DEFAULTS, themeData.params || themeData),
+      scene: themeData.scene || {},
+    };
+    this._importedThemes.push(t);
+    try {
+      localStorage.setItem('itv-imported-themes', JSON.stringify(this._importedThemes.map((x) => ({ name: x.name, params: x.params, scene: x.scene, mode: x.mode }))));
+    } catch (e) {}
+    if (this.ui) this.ui._renderThemes(this._importedThemes);
+    // apply it
+    this.applyTheme(t);
+    this.currentThemeId = t.id;
+  }
+
+  exportTheme() {
+    return {
+      name: 'Magnetosphere Theme',
+      visualMode: this.params.visualMode,
+      params: Object.assign({}, this.params),
+      scene: Object.assign({}, this.themeScene),
+    };
+  }
+
   // ---- audioMotion overlay mode (draggable/resizable) ----
   _toggleAudioMotion(enabled) {
     if (enabled) {
@@ -497,6 +597,19 @@ class App {
     const eng = this.gl;
     const p = this.params;
     const vis = p.visualMode;
+
+    // ---- MilkDrop (butterchurn) path ----
+    if (vis === 'Milk' && this.milk && this.milk.ready) {
+      if (this.milk.setVisible) this.milk.setVisible(true);
+      // butterchurn uses null audio + our getAudioLevels feed in milk.render()
+      if (this._milkPreset && this.milk._preset !== this._milkPreset) {
+        this.milk.loadPreset(this._milkPreset);
+      }
+      this.milk.render(dt);
+      return;
+    } else if (this.milk && this.milk.setVisible) {
+      this.milk.setVisible(false);
+    }
 
     // ---- three.js path for orb modes ----
     const isOrbMode = vis === 'Orbs' || vis === 'Blob' || vis === undefined;
