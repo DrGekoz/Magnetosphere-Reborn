@@ -55,6 +55,9 @@
         this.rim.position.set(0, -2, -4);
         this.amb = new THREE.AmbientLight(0x223344, 0.35);
         this.scene.add(this.key, this.fill, this.rim, this.amb);
+        // hemisphere light probe for ambient color grading per theme
+        this.hemi = new THREE.HemisphereLight(0x4466aa, 0x000000, 0.4);
+        this.scene.add(this.hemi);
 
         // ---- metaball merged mesh (instanced spheres) ----
         // one shared geometry; per-orb instance matrix + color
@@ -225,6 +228,8 @@
       this.key.intensity = 0.9 + energy * 0.7;
       this.fill.intensity = 0.15 + energy * 0.08;
       this.rim.intensity = 0.2 + energy * 0.12;
+      this._energy = energy;
+      this._gradeAmbient(bandColors);
     }
 
     // push particle points
@@ -256,6 +261,21 @@
       this.key.intensity = l.keyIntensity ?? 2.2;
       this.fill.intensity = l.fillIntensity ?? 0.55;
       this.rim.intensity = l.rimIntensity ?? 0.9;
+      // hemisphere probe from theme (bg color drives ambient tint)
+      if (l.ambientColor) {
+        this.hemi.color.set(l.ambientColor);
+        this.hemi.groundColor.set(l.groundColor || 0x000000);
+      }
+    }
+
+    // theme-driven ambient probe from band/bg colors (called each frame)
+    _gradeAmbient(bandColors, bgHsl) {
+      if (!this.ready || !this.hemi) return;
+      // sky = bg tinted toward band0, ground = black
+      const c = bandColors[0];
+      this.hemi.color.setRGB(c[0] * 0.5, c[1] * 0.5, c[2] * 0.5);
+      this.hemi.groundColor.setRGB(0.02, 0.02, 0.03);
+      this.hemi.intensity = 0.25 + 0.3 * (this._energy || 0);
     }
 
     render(time, energy, beat) {
