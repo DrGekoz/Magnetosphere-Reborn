@@ -664,13 +664,13 @@ class App {
       this._iframeEl.onload = () => {
         try {
           var doc = this._iframeEl.contentDocument || this._iframeEl.contentWindow?.document;
-          if (doc && tplId === 'particles') {
-            var c = doc.getElementById('p-canvas');
-            if (c) {
+          if (doc) {
+            var c = doc.getElementById('c') || doc.getElementById('p-canvas');
+            if (c && (tplId === 'particles' || tplId === 'helpers')) {
               c.width = document.body.clientWidth;
               c.height = document.body.clientHeight;
               // Notify iframe to redraw
-              this._iframeEl.contentWindow.postMessage({ __mag: 'mag-particles-resize', w: c.width, h: c.height }, '*');
+              this._iframeEl.contentWindow.postMessage({ __mag: 'mag-' + tplId + '-resize', w: c.width, h: c.height }, '*');
             }
           }
           this._iframeReady = true;
@@ -724,7 +724,7 @@ class App {
 
     // ---- iframe template path (vendored repos run their native systems) ----
     const iframeTplKey = vis.toLowerCase();
-    const iframeMap = { blob: null, milk: null, audiomotion: null, bars: null, scope: null, plasma: null, fountain: null, av3d: 'av3d', 'party-mode': 'party-mode', particles: 'particles' };
+    const iframeMap = { blob: null, milk: null, audiomotion: null, bars: null, scope: null, plasma: null, fountain: null, av3d: 'av3d', 'party-mode': 'party-mode', particles: 'particles', helpers: 'helpers' };
     const iframeTpl = iframeMap[iframeTplKey];
     if (iframeTpl) {
       this._showIframe(iframeTpl, a);

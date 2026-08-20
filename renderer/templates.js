@@ -220,6 +220,7 @@
     { id: 'av3d', name: 'Three.js Visualizer', category: 'Community', engine: 'iframe', schemaId: 'av3d', desc: 'Frequency-displaced icosahedron + wireframe planes (audio-visualizer-three-js).', thumb: 'templates/thumbs/av3d.png' },
     { id: 'party-mode', name: 'party-mode', category: 'Community', engine: 'iframe', schemaId: 'party', desc: 'D3 hexbin + waveform visualizations (preziotte/party-mode).', thumb: 'templates/thumbs/party-mode.png' },
     { id: 'particles', name: 'Interactive Particles', category: 'Community', engine: 'particles', schemaId: 'particles', desc: 'Noise-displaced audio-reactive point cloud (Codrops/Tiago Canzian).', thumb: '' },
+    { id: 'helpers', name: 'WebGL Helpers', category: 'Core', engine: 'iframe', schemaId: 'helpers', desc: 'Axes, grids, wireframes — scene geometry debug view (mrdoob/three.js examples). Audio-reactive.', thumb: '' },
   ];
 
   // Static thumbs (extracted from repo READMEs) live in renderer/templates/thumbs/<id>.png
