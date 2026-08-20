@@ -52,6 +52,8 @@
 <script>
   // boot party-mode with host audio instead of the file picker/mic
   // (runs synchronously before main.js's onload so a.init picks the mic path)
+  // frameLooper references a global `audio` — provide a stub so it doesn't throw
+  window.audio = document.getElementById('mp3_player') || { currentTime: 0, duration: 1, paused: true, play: function(){}, pause: function(){}, muted: false, volume: 1 };
   if (window.a) {
     window.a.loadSound = function () { window.a.microphone(); };
   }

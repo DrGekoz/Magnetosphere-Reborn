@@ -176,6 +176,20 @@
         { key: 'showFPS', label: 'Show FPS', section: 'perf', type: 'toggle', def: 0 },
       ],
     },
+    // ---- party-mode (iframe template) ----
+    party: {
+      sections: [
+        { id: 'party', label: 'PARTY-MODE' },
+        { id: 'audio', label: 'AUDIO' },
+        { id: 'perf', label: 'PERFORMANCE' },
+      ],
+      params: [
+        { key: 'partyViz', label: 'Visualization', section: 'party', type: 'dropdown', options: ['0', '1', '2', '3', '4', '5', '6', '7'] },
+        { key: 'sensitivity', label: 'Audio Sensitivity', section: 'audio', type: 'slider', min: 0.1, max: 4, step: 0.05 },
+        { key: 'targetFPS', label: 'Target FPS', section: 'perf', type: 'slider', min: 30, max: 240, step: 5 },
+        { key: 'showFPS', label: 'Show FPS', section: 'perf', type: 'toggle', def: 0 },
+      ],
+    },
   };
   // 'thumb' = path to a static thumbnail (from the repo README where available).
   const TEMPLATES = [
@@ -185,6 +199,7 @@
     { id: 'audiomotion', name: 'audioMotion', category: 'Core', engine: 'audiomotion', schemaId: 'audiomotion', desc: 'High-res spectrum analyzer (AGPL-3.0).', thumb: 'templates/thumbs/audiomotion.png' },
     { id: 'raymarch', name: 'Raymarch', category: 'Core', engine: 'raymarch', schemaId: 'orbs', desc: 'Original raymarched metaball field.', thumb: '' },
     { id: 'av3d', name: 'Three.js Visualizer', category: 'Community', engine: 'iframe', schemaId: 'av3d', desc: 'Frequency-displaced icosahedron + wireframe planes (audio-visualizer-three-js).', thumb: 'templates/thumbs/av3d.png' },
+    { id: 'party-mode', name: 'party-mode', category: 'Community', engine: 'iframe', schemaId: 'party', desc: 'D3 hexbin + waveform visualizations (preziotte/party-mode).', thumb: 'templates/thumbs/party-mode.png' },
   ];
 
   // Static thumbs (extracted from repo READMEs) live in renderer/templates/thumbs/<id>.png

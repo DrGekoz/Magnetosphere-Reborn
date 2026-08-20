@@ -386,6 +386,7 @@
 			analyser.fftSize = 1024;
 			var _audioEl = document.getElementById('mp3_player');
 			if (_audioEl) _audioEl.pause();
+			if (a.frameLooper) a.frameLooper();
 			return;
 		}
 		if (State.protocol.indexOf('https') == -1) {
