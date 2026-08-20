@@ -97,7 +97,18 @@ A **Demo mode** (synthesized beat) is built in as a fallback when no audio is pl
 
 ### Global Themes (24)
 
-Paginated, categorized template selector with live thumbnails:
+Paginated, categorized template selector with live thumbnails.
+
+**Engines / Templates** — 6 engines, each with its own native renderer and its **own settings panel** (the params shown rebuild when you switch):
+
+| Engine | Renderer | Params |
+|---|---|---|
+| **Orbs** | three.js metaball orbs, real 3-point lighting, PBR materials, UnrealBloom | 67 |
+| **Frequency Blob** | icosahedron displaced by the FFT (audio-visualizer-three-js) | 13 |
+| **MilkDrop** | full MilkDrop2 engine via butterchurn, import .milk presets | 5 |
+| **audioMotion** | high-res spectrum analyzer (AGPL-3.0) | 9 |
+| **Raymarch** | original raymarched metaball field | 67 |
+| **Three.js Visualizer** | vendored audio-visualizer-three-js running natively in a sandboxed iframe, fed system audio | 5 |
 
 | Category | Themes |
 |---|---|
