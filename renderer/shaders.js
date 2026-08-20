@@ -53,6 +53,8 @@ uniform float uBeatFlash;
 uniform float uHeatLamp;      // 0/1 -> light at bottom
 uniform float uQuality;       // step multiplier
 uniform float uDebugField;    // 1 = visualize field distance (debug)
+uniform float uBlackHole;     // 1 = accretion disk + event horizon (black hole theme)
+uniform float uMetallic;      // 1 = metallic shading (colored specular, no diffuse)
 
 const int MAX_ORBS = 48;
 const float PI = 3.14159265359;
@@ -152,9 +154,9 @@ vec3 stars(vec3 rd) {
     vec2 off = vec2(hash12(seed+3.7), hash12(seed+9.1)) - 0.5;
     float d = length(fr.xy + off*0.4);
     float tw = 0.35 + 0.65*abs(sin(uTime*(0.5+h*2.0)*uStarSpeed + h*40.0));
-    float a = smoothstep(0.08, 0.0, d) * (0.25+0.45*tw) * uStarBright * (0.4 + 0.3*mus);
+    float a = smoothstep(0.1, 0.0, d) * (0.5+0.5*tw) * uStarBright * (0.7 + 0.5*mus);
     float tint = mix(0.9, 1.0, h);
-    col += vec3(tint*0.9, tint, tint*1.05) * a * (0.5 + 0.5*h);
+    col += vec3(tint*0.9, tint, tint*1.05) * a * (0.7 + 0.5*h);
     float sp = smoothstep(0.12, 0.0, abs(fr.y)) * smoothstep(0.3, 0.0, abs(fr.x)) * uBeat;
     col += vec3(1.0) * sp * 0.5 * h;
   }
@@ -209,8 +211,50 @@ void main() {
   bgCol += stars(rd);
 
   vec3 ro = uCamPos;
-  float t = 0.02;
   float tmax = 18.0;
+
+  // black hole: accretion disk + event horizon (credit: 3d-game-shaders-for-beginners, inspired by Interstellar)
+  // uniform uBlackHole 0/1 gates this; disk orbits in the XZ plane around origin
+  if (uBlackHole > 0.5) {
+    vec3 bhCenter = vec3(0.0, 0.0, 0.0);
+    vec3 toBH = bhCenter - ro;
+    float dBH = length(toBH);
+    // ray-disk intersection: disk lies in XZ plane (y=0), inner r0=0.9 outer r1=2.2
+    if (abs(rd.y) > 1e-4) {
+      float tDisk = (0.0 - ro.y) / rd.y;
+      if (tDisk > 0.02 && tDisk < tmax) {
+        vec3 dp = ro + rd * tDisk;
+        float rad = length(dp.xz);
+        if (rad > 0.85 && rad < 2.3) {
+          // inner hotter (white-yellow), outer cooler (orange-red); doppler: approaching side brighter
+          float inner = smoothstep(2.3, 0.85, rad);
+          vec3 diskCol = mix(vec3(1.0, 0.45, 0.12), vec3(1.0, 0.95, 0.7), inner);
+          diskCol = mix(diskCol, vec3(0.4, 0.7, 1.0), (0.5 + 0.5*sign(dp.x)) * 0.25); // blue side / red side
+          // band color tint from energy
+          diskCol = mix(diskCol, uBandCol[0], uEnergy * 0.15);
+          // turbulence + rotation shimmer
+          float ang = atan(dp.z, dp.x);
+          float turb = vnoise(vec3(rad*3.0, ang*2.0, uTime*0.15));
+          diskCol *= 0.75 + 0.5*turb;
+          // brightness boosted by energy
+          diskCol *= (0.8 + 1.2*inner) * (0.7 + 0.8*uEnergy) * (0.6 + 0.8*uBeat);
+          // thin disk -> sharper toward midplane
+          float thin = smoothstep(0.14, 0.0, abs(dp.y));
+          bgCol += diskCol * thin * (1.0 - smoothstep(1.8, 2.3, rad));
+          // occlusion: event horizon sphere swallows the disk behind it
+          vec3 toQ = dp - bhCenter;
+          if (length(toQ.xz) < 0.9) {
+            bgCol *= 0.05; // dark shadow of the hole
+          }
+        }
+      }
+    }
+    // lensing glow ring around the horizon (thin bright rim)
+    float rim = smoothstep(0.95, 0.8, length(rd.xz));
+    bgCol += uBandCol[1] * rim * 0.35 * (0.6 + 0.7*uEnergy) * uBgGlow;
+  }
+
+  float t = 0.02;
   bool hit = false;
   vec3 colAcc = uBandCol[0];
   float wsum = 1.0;
@@ -268,13 +312,20 @@ void main() {
     vec3 H = normalize(L + v);
     float rough = uRough;
     float spec = pow(max(dot(n, H), 0.0), 8.0 + 96.0*(1.0-rough)) * (1.0 - rough*0.7);
-    vec3 specCol = mix(base * 1.4, vec3(1.0), 0.25) * uReflect;  // tinted specular
+    // metal: specular tinted by base color (colored reflections), no diffuse, sharp highlight
+    float metal = uMetallic;
+    vec3 specCol = metal > 0.5
+      ? base * (0.5 + 0.7*uReflect) * (1.0 - rough*0.5)
+      : mix(base * 1.4, vec3(1.0), 0.25) * uReflect;
+    spec *= metal > 0.5 ? (2.0 - rough) : 1.0;   // metals are sharper
 
     vec3 R = reflect(-v, n);
     vec3 e1 = envSample(R, base);
     vec3 R2 = reflect(-v, n + vec3(rough*0.4, rough*0.4, 0.0));
     vec3 e2 = envSample(R2, base);
     vec3 refl = mix(e1, e2, 0.5);
+    // metals tint reflections with the surface color
+    refl = metal > 0.5 ? refl * base * 1.2 : refl;
 
     float coreDepth = clamp((wsum - 1.0) * 1.2, 0.0, 1.5);
     float absorb = exp(-uAbsorb * coreDepth * 3.0);
@@ -287,7 +338,9 @@ void main() {
 
     float li = 1.0 + uEnergy*0.9 + beat;
 
-    vec3 shade = base * diff * li * uLightCol * (1.0 - uAbsorb*0.5);
+    // metals have almost no diffuse — reflection dominates
+    float diffAmt = metal > 0.5 ? diff * 0.15 : diff;
+    vec3 shade = base * diffAmt * li * uLightCol * (1.0 - uAbsorb*0.5);
     shade += specCol * spec * li * uLightCol;
     shade += refl * uReflect * (0.25 + 0.35*uEnergy) * li;
     shade += rimCol * fres * (0.5 + 0.5*uEnergy) * 0.8;
@@ -446,8 +499,9 @@ out vec4 fragColor;
 uniform sampler2D uTex;
 uniform vec2 uDir;
 uniform vec2 uRes;
+uniform float uSpread;
 void main(){
-  vec2 px = 1.0/uRes;
+  vec2 px = 1.0/uRes * uSpread;
   vec3 c = texture(uTex, vUV).rgb * 0.227027;
   c += texture(uTex, vUV + uDir*px*1.3846).rgb * 0.3162162;
   c += texture(uTex, vUV - uDir*px*1.3846).rgb * 0.3162162;
@@ -529,6 +583,11 @@ uniform float uScanlines;
 uniform float uChromatic;
 uniform float uEnergy, uBeat;
 uniform vec2 uRes;
+uniform float uFilmGrain;     // 0-1 animated grain intensity
+uniform float uPosterize;     // 0 = off, >0 = color levels
+uniform float uPixelize;      // 0 = off, >0 = pixel block size (px)
+uniform float uSharpen;       // 0-1 sharpen kernel amount
+uniform float uTime;
 float hash12(vec2 p){ vec3 p3 = fract(vec3(p.xyx)*0.1031); p3 += dot(p3,p3.yzx+33.33); return fract((p3.x+p3.y)*p3.z); }
 void main(){
   vec2 uv = vUV;
@@ -554,7 +613,36 @@ void main(){
     float sl = 0.92 + 0.08*sin(uv.y * uRes.y * 3.14159);
     col *= mix(1.0, sl, uScanlines);
   }
-  col += (hash12(uv*uRes) - 0.5) * 0.008;
+  // film grain (credit: 3d-game-shaders-for-beginners, David Lettier)
+  if (uFilmGrain > 0.001) {
+    float randv = fract(10000.0 * sin((gl_FragCoord.x + gl_FragCoord.y * uTime) * 3.14159265));
+    col += (randv - 0.5) * 0.08 * uFilmGrain;
+  }
+  // posterize (credit: 3d-game-shaders-for-beginners)
+  if (uPosterize > 0.001) {
+    float levels = 4.0 + uPosterize * 22.0;
+    col = floor(col * levels) / levels;
+  }
+  // sharpen 3x3 (credit: 3d-game-shaders-for-beginners)
+  if (uSharpen > 0.001) {
+    vec2 px = 1.0 / uRes;
+    float amount = uSharpen * 0.3;
+    vec3 s =
+        texture(uScene, uv + vec2(0, 1)*px).rgb * (amount * -1.0)
+      + texture(uScene, uv + vec2(-1, 0)*px).rgb * (amount * -1.0)
+      + texture(uScene, uv).rgb * (amount * 4.0 + 1.0)
+      + texture(uScene, uv + vec2(1, 0)*px).rgb * (amount * -1.0)
+      + texture(uScene, uv + vec2(0, -1)*px).rgb * (amount * -1.0);
+    col = mix(col, s, uSharpen);
+  }
+  // pixelize (credit: 3d-game-shaders-for-beginners)
+  if (uPixelize > 0.5) {
+    float ps = floor(uPixelize);
+    vec2 fp = gl_FragCoord.xy;
+    vec2 block = floor(fp / ps) * ps + ps * 0.5;
+    col = texture(uScene, block / uRes).rgb;
+  }
+  col += (hash12(uv*uRes + floor(uTime*60.0)) - 0.5) * 0.008;
   fragColor = vec4(max(col, 0.0), 1.0);
 }
 `;

@@ -50,7 +50,8 @@ class Scene {
       const th = i * 2.399963;
       const rad = (big ? 0.7 + Math.random() * 0.3 : 0.35 + Math.random() * 0.6) * spread;
       const ang = th;
-      const o = new Orb(Math.cos(ang) * rad * rr, yy * spread * 0.8, Math.sin(ang) * rad * rr, r * (p.orbSize || 1));
+      const o = new Orb(Math.cos(ang) * rad * rr, yy * spread * 0.8, Math.sin(ang) * rad * rr, r);
+      o._baseR = r;   // raw radius, orbSize applied live in update
       o.band = Math.floor(Math.random() * 3);
       o.emitter = big ? 1 : (Math.random() < 0.35 ? 1 : 0);
       o.parent = -1;
@@ -60,7 +61,7 @@ class Scene {
     if (p.spawnSmall !== 0 && this.orbs.length >= 3) {
       for (let i = 0; i < this.orbs.length; i++) {
         if (this.orbs[i].r < 0.4) {
-          const big = this.orbs.filter((o) => o.r >= 0.5);
+          const big = this.orbs.filter((o) => o._baseR >= 0.12);
           if (big.length) this.orbs[i].parent = this.orbs.indexOf(big[Math.floor(Math.random() * big.length)]);
         }
       }
@@ -249,7 +250,9 @@ class Scene {
     // music pulse scales orb radii slightly
     for (let i = 0; i < n; i++) {
       const o = orbs[i];
-      o.r = o._baseR ? o._baseR * pulse : o.r;
+      // orbSize applied LIVE: changing the slider resizes orbs immediately
+      const sizeScale = p.orbSize || 1;
+      o.r = o._baseR ? o._baseR * pulse * sizeScale : o.r;
       if (!o._baseR) o._baseR = o.r;
       // beat kick: sudden radial spike on beat
       if (a.beat > 0.6 && o._baseR) o.r = o._baseR * (1 + a.beat * 0.25 * (o.band === 0 ? 1 : 0.5));
@@ -279,7 +282,7 @@ class Scene {
       this._spawnAcc += dtc * p.emitterRate * (0.5 + emo * 1.5);
       // beat burst: spawn a ring of particles from every emitter
       if (a.beat > 0.6) {
-        const emitters2 = orbs.filter((o) => o.emitter && o.r >= 0.4);
+        const emitters2 = orbs.filter((o) => o.emitter && o.r >= 0.1);
         for (const o of emitters2) {
           const col = this._bandRGB(o.band);
           const ring = 10 + Math.floor(a.beat * 10);
@@ -296,7 +299,7 @@ class Scene {
       }
       const rate = Math.floor(this._spawnAcc);
       this._spawnAcc -= rate;
-      const emitters = orbs.filter((o) => o.emitter && o.r >= 0.4);
+      const emitters = orbs.filter((o) => o.emitter && o.r >= 0.1);
       for (let e = 0; e < rate; e++) {
         if (!emitters.length) break;
         const o = emitters[Math.floor(Math.random() * emitters.length)];

@@ -82,7 +82,7 @@ const PARAM_SCHEMA = [
   { key: 'chromatic', label: 'Chromatic Aberration', section: 'fx', type: 'slider', min: 0, max: 1, step: 0.01 },
   { key: 'beatFlash', label: 'Beat Flash', section: 'fx', type: 'slider', min: 0, max: 1, step: 0.01 },
   { key: 'motionBlur', label: 'Trail Persistence', section: 'fx', type: 'slider', min: 0.5, max: 0.99, step: 0.01 },
-  { key: 'visualMode', label: 'Visual Mode', section: 'fx', type: 'dropdown', options: ['Orbs', 'Bars', 'Scope', 'Plasma', 'Fountain', 'audioMotion'] },
+  { key: 'visualMode', label: 'Visual Mode', section: 'fx', type: 'dropdown', options: ['Orbs', 'Blob', 'Bars', 'Scope', 'Plasma', 'Fountain', 'audioMotion'] },
   // audio
   { key: 'sensitivity', label: 'Sensitivity', section: 'audio', type: 'slider', min: 0.1, max: 4, step: 0.05 },
   { key: 'smoothing', label: 'Smoothing', section: 'audio', type: 'slider', min: 0.05, max: 0.95, step: 0.01 },
@@ -110,7 +110,7 @@ const DEFAULTS = {
   lightAngle: 0.62, lightColHue: 80, lightColSat: 0.9, lightColLight: 0.95,
   fogDensity: 0.5, fogColHue: 150, fogColSat: 0.75, fogColLight: 0.1, godRays: 1.3,
   bgHue: 150, bgSat: 0.8, bgLight: 0.02, bgGlow: 1.1,
-  starDensity: 0.75, starBright: 0.8, starTwinkle: 0.6, starSpeed: 1.0,
+  starDensity: 0.75, starBright: 0.8, useThree: 1, starTwinkle: 0.6, starSpeed: 1.0,
   bloom: 1, bloomIntensity: 2.2, vignette: 0.65, scanlines: 0, chromatic: 0.35,
   beatFlash: 0.7, motionBlur: 0.9,
   visualMode: 'Orbs',
@@ -129,6 +129,7 @@ const MATERIALS = {
   'Water': { viscosity: 0.08, mergeAmount: 0.4, reflect: 0.6, rough: 0.08, emissive: 0.3, absorb: 0.12, refract: 0.9, matCol: [0.5, 0.8, 1.0] },
   'Honey': { viscosity: 0.95, mergeAmount: 1.2, reflect: 0.4, rough: 0.4, emissive: 0.8, absorb: 0.6, refract: 0.35, matCol: [1.0, 0.8, 0.3] },
   'Blood': { viscosity: 0.6, mergeAmount: 0.8, reflect: 0.35, rough: 0.5, emissive: 0.6, absorb: 0.95, refract: 0.4, matCol: [0.9, 0.15, 0.15] },
+  'Metal': { viscosity: 0.2, mergeAmount: 0.45, reflect: 0.95, rough: 0.08, emissive: 0.15, absorb: 0.15, refract: 0.05, metallic: 1, matCol: [0.85, 0.9, 0.95] },
 };
 
 // ---------------------------------------------------------------------------
@@ -207,6 +208,8 @@ const THEMES = [
   T({ id: 'ultraviolet', category: 'Energy', name: 'Ultraviolet', mode: 'orbs', desc: 'Deep purple-black, neon violet glow.',
     params: { band0HueStart: 270, band0HueEnd: 300, band0Sat: 1, band0Light: 0.6, band1HueStart: 250, band1HueEnd: 280, band1Sat: 0.95, band1Light: 0.55, band2HueStart: 290, band2HueEnd: 320, band2Sat: 1, band2Light: 0.5, bgHue: 280, bgSat: 0.9, bgLight: 0.04, bgGlow: 0.85, fogColHue: 280, fogColSat: 0.9, fogColLight: 0.12, fogDensity: 0.55, godRays: 1.4, lightColHue: 290, lightColSat: 1, lightColLight: 1, material: 'Classic', reflect: 0.6, rough: 0.25, emissive: 1.0, absorb: 0.4, refract: 0.3, mergeAmount: 0.6, swirl: 1.0, centerPull: 0.4, bloomIntensity: 1.9}, scene: {} }),
 
+  T({ id: 'blob', category: 'Sci-Fi', name: 'Frequency Blob', mode: 'orbs', desc: 'Icosahedron displaced by the FFT + noise (credit: audio-visualizer-three-js).',
+    params: { band0HueStart: 90, band0HueEnd: 140, band0Sat: 1, band0Light: 0.55, band1HueStart: 140, band1HueEnd: 180, band1Sat: 0.9, band1Light: 0.5, band2HueStart: 60, band2HueEnd: 100, band2Sat: 1, band2Light: 0.5, bgHue: 150, bgSat: 0.4, bgLight: 0.03, bgGlow: 0.6, fogColHue: 130, fogColSat: 0.6, fogColLight: 0.1, fogDensity: 0.4, godRays: 1.2, lightColHue: 110, lightColSat: 0.8, lightColLight: 1, starDensity: 0.8, starBright: 0.9, bloomIntensity: 1.6, visualMode: 'Blob', blobMode: 1 }, scene: {} }),
   T({ id: 'plasmastorm', category: 'Energy', name: 'Plasma Storm', mode: 'orbs', desc: 'Electric chaos, flickering, high energy.',
     params: { band0HueStart: 200, band0HueEnd: 260, band0Sat: 1, band0Light: 0.6, band1HueStart: 40, band1HueEnd: 90, band1Sat: 0.9, band1Light: 0.55, band2HueStart: 280, band2HueEnd: 330, band2Sat: 1.0, band2Light: 0.55, bgHue: 240, bgSat: 0.8, bgLight: 0.04, bgGlow: 0.9, fogColHue: 220, fogColSat: 0.8, fogColLight: 0.12, fogDensity: 0.6, godRays: 1.7, lightColHue: 220, lightColSat: 1, lightColLight: 1.1, lightAngle: 0.4, material: 'Classic', reflect: 0.7, rough: 0.2, emissive: 1.4, absorb: 0.3, refract: 0.35, mergeAmount: 0.5, jitter: 1, swirl: 1.6, centerPull: 0.5, magnetism: 1.2, orbCount: 46, bloomIntensity: 2.2, chromatic: 0.8, beatFlash: 1}, scene: { storm: true } }),
 ];

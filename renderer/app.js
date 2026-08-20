@@ -15,6 +15,14 @@ class App {
   constructor() {
     this.canvas = document.getElementById('gl');
     this.gl = new GLEngine(this.canvas);
+    // three.js orb engine (fallback to raymarch if it fails to init)
+    try {
+      const OrbEngine = window.__modules['three-orb'];
+      if (OrbEngine) {
+        this.orb = new OrbEngine(this.canvas);
+        if (!this.orb.ready) this.orb = null;
+      }
+    } catch (e) { this.orb = null; console.log('three-orb unavailable:', e.message); }
     this.params = Object.assign({}, DEFAULTS);
     this.scene = new Scene();
     this.ui = null;
@@ -148,6 +156,7 @@ class App {
     const w = Math.max(64, Math.round(W * this.resScale));
     const h = Math.max(64, Math.round(H * this.resScale));
     this.gl.resize(w, h);
+    if (this.orb) this.orb.resize(W, H);
     this._fullW = W; this._fullH = H;
   }
 
@@ -163,6 +172,9 @@ class App {
   setParam(key, val) {
     const old = this.params[key];
     this.params[key] = val;
+    // user touched this param — themes must NOT override it
+    if (!this._userKeys) this._userKeys = new Set();
+    this._userKeys.add(key);
     // material selection applies preset values to material params
     if (key === 'material') {
       const m = MATERIALS[val];
@@ -203,16 +215,22 @@ class App {
   applyTheme(t) {
     if (!t) return;
     const p = t.params || {};
-    const merged = Object.assign({}, DEFAULTS, this.params, p);
+    // user-modified params win over the theme (sliders keep their value)
+    const pFiltered = {};
+    for (const k of Object.keys(p)) {
+      if (this._userKeys && this._userKeys.has(k)) continue;
+      pFiltered[k] = p[k];
+    }
+    const merged = Object.assign({}, DEFAULTS, this.params, pFiltered);
     // material from theme
-    if (p.material && MATERIALS[p.material]) {
-      const m = MATERIALS[p.material];
+    if (pFiltered.material && MATERIALS[pFiltered.material]) {
+      const m = MATERIALS[pFiltered.material];
       for (const k of ['viscosity', 'mergeAmount', 'reflect', 'rough', 'emissive', 'absorb', 'refract']) {
         merged[k] = m[k];
       }
       // theme may still override some
       for (const k of ['viscosity', 'mergeAmount', 'reflect', 'rough', 'emissive', 'absorb', 'refract']) {
-        if (k in p) merged[k] = p[k];
+        if (k in pFiltered) merged[k] = pFiltered[k];
       }
     }
     this.params = merged;
@@ -243,6 +261,7 @@ class App {
   resetAll() {
     this.params = Object.assign({}, DEFAULTS);
     this.themeScene = {};
+    this._userKeys = new Set();   // reset clears user overrides
     this.ui.setParams(this.params);
     this._pushSceneConfig();
     this.scene.configure({});
@@ -438,6 +457,7 @@ class App {
     }
 
     const a = this.audio.update(dt);
+    this._audioEnergy = a.energy;
 
     // MilkDrop3-style: N = auto-rotate theme every 8 beats
     if (a.beat > 0.5) this._beatAutoRotate();
@@ -448,7 +468,8 @@ class App {
     // upload orb state
     this.scene.upload(this.gl.gl, this.texOrbs, this.texOrbData);
 
-    this._render(a, t / 1000, dt);
+    this._t = t / 1000;
+    this._render(a, this._t, dt);
 
     // FPS
     this.fpsFrames++;
@@ -476,6 +497,17 @@ class App {
     const eng = this.gl;
     const p = this.params;
     const vis = p.visualMode;
+
+    // ---- three.js path for orb modes ----
+    const isOrbMode = vis === 'Orbs' || vis === 'Blob' || vis === undefined;
+    if (isOrbMode && this.orb && this.orb.ready && p.useThree !== 0) {
+      this.orb.setLights(this.themeScene);
+      this.orb.updateOrbs(this.scene.orbs, p, this._bandCols(), a.energy, a.beat);
+      this.orb.updateParticles(this.scene.particles);
+      this.orb.render(time, a.energy, a.beat);
+      // skip raymarch FBO path entirely
+      return;
+    }
 
     const bandCols = this._bandCols();
     const bgCol = hsl2rgb(p.bgHue, p.bgSat, p.bgLight);
@@ -542,6 +574,11 @@ class App {
     eng.set1f('composite', 'uChromatic', p.chromatic);
     eng.set1f('composite', 'uEnergy', a.energy);
     eng.set1f('composite', 'uBeat', a.beat);
+    eng.set1f('composite', 'uFilmGrain', p.filmGrain || 0);
+    eng.set1f('composite', 'uPosterize', p.posterize || 0);
+    eng.set1f('composite', 'uSharpen', p.sharpen || 0);
+    eng.set1f('composite', 'uPixelize', p.pixelize || 0);
+    eng.set1f('composite', 'uTime', this._t || 0);
     eng.set2f('composite', 'uRes', eng.W, eng.H);
     gl.bindVertexArray(eng.quad());
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -597,6 +634,8 @@ class App {
     eng.set1f('main', 'uQuality', p.quality);
     eng.set1f('main', 'uDebugField', (new URLSearchParams(location.search).get('debug') === '1') ? 1 : 0);
     eng.set1f('main', 'uDebugOrbs', (new URLSearchParams(location.search).get('orbs') === '1') ? 1 : 0);
+    eng.set1f('main', 'uBlackHole', (this.themeScene && (this.themeScene.suck || this.themeScene.bigCore)) ? 1 : 0);
+    eng.set1f('main', 'uMetallic', (this.params.material === 'Metal' || this.params.metallic) ? 1 : 0);
   }
 
   _set2DUniforms(eng, a, time, bandCols, bgCol, progName) {
@@ -690,31 +729,36 @@ class App {
 
   _doBloom(eng, srcTex, intensity) {
     const gl = this.gl.gl;
-    // bright pass
+    const p = this.params;
+    // bright pass — energy-adaptive threshold: more music = more glow
+    const thr = 0.55 - (this._audioEnergy || 0) * 0.2;
     eng.use('bright');
     gl.bindFramebuffer(gl.FRAMEBUFFER, eng.bloomA.fbo);
     gl.viewport(0, 0, eng.bloomA.w, eng.bloomA.h);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, srcTex);
     eng.set1i('bright', 'uTex', 0);
-    eng.set1f('bright', 'uThreshold', 0.55);
+    eng.set1f('bright', 'uThreshold', thr);
     gl.disable(gl.BLEND);
     gl.bindVertexArray(eng.quad()); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); gl.bindVertexArray(null);
-    // blur x2
-    for (let i = 0; i < 2; i++) {
+    // 4 blur passes (2x H+V): tight core glow + wide soft halo
+    for (let i = 0; i < 4; i++) {
       eng.use('blur');
       gl.bindFramebuffer(gl.FRAMEBUFFER, eng.bloomB.fbo);
       gl.viewport(0, 0, eng.bloomB.w, eng.bloomB.h);
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, eng.bloomA.color);
       eng.set1i('blur', 'uTex', 0);
-      eng.set2f('blur', 'uDir', 1, 0);
+      eng.set2f('blur', 'uDir', i % 2 === 0 ? 1 : 0, i % 2 === 0 ? 0 : 1);
       eng.set2f('blur', 'uRes', eng.bloomA.w, eng.bloomA.h);
+      // wider tap spread on later passes = soft halo
+      eng.set2f('blur', 'uSpread', i >= 2 ? 2.2 : 1.0);
       gl.bindVertexArray(eng.quad()); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); gl.bindVertexArray(null);
       eng.use('blur');
       gl.bindFramebuffer(gl.FRAMEBUFFER, eng.bloomA.fbo);
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, eng.bloomB.color);
       eng.set1i('blur', 'uTex', 0);
-      eng.set2f('blur', 'uDir', 0, 1);
+      eng.set2f('blur', 'uDir', i % 2 === 0 ? 0 : 1, i % 2 === 0 ? 1 : 0);
       eng.set2f('blur', 'uRes', eng.bloomB.w, eng.bloomB.h);
+      eng.set2f('blur', 'uSpread', i >= 2 ? 2.2 : 1.0);
       gl.bindVertexArray(eng.quad()); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); gl.bindVertexArray(null);
     }
     return eng.bloomA.color;

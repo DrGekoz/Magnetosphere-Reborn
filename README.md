@@ -191,7 +191,7 @@ Click the **gear** (top-right). Every parameter is mapped to a control:
 | **Material** | Wax / Black Hole / Classic / Molten Metal / Water / Honey / Blood |
 | **Light & Fog** | Light angle + color, fog density/color, god rays |
 | **Background** | Color, nebula glow, star density/brightness/twinkle/speed |
-| **Effects** | Bloom, vignette, scanlines, chromatic aberration, beat flash, trail persistence, visual mode |
+| **Effects** | Bloom, vignette, scanlines, chromatic aberration, beat flash, trail persistence, visual mode, **film grain**, **posterize**, **sharpen**, **pixelize** |
 | **Audio** | Sensitivity, smoothing, bass bias, beat threshold, **music motion speed**, source (System / Mic / Demo) |
 | **Performance** | Raymarch quality, adaptive resolution, target FPS, FPS counter |
 | **About** | Credits + license |
@@ -260,6 +260,7 @@ Built by **DrGekoz**. This project references and builds upon:
 | audioMotion-analyzer | https://github.com/hvianna/audioMotion-analyzer | High-res spectrum analyzer, integrated as a visual mode (**AGPL-3.0**) |
 | party-mode / vizz.fm | https://github.com/preziotte/party-mode | Browser music visualizer inspiration |
 | The Book of Shaders | https://github.com/patriciogonzalezvivo/thebookofshaders | Shader education & reference |
+| 3D Game Shaders for Beginners | https://github.com/lettier/3d-game-shaders-for-beginners | Post-processing effects (film grain, posterize, sharpen, pixelize) |
 | tinyraytracer | https://github.com/ssloy/tinyraytracer | Raytracing reference |
 | The-Forge | https://github.com/ConfettiFX/The-Forge | Considered for the renderer, not used (stayed on WebGL2) |
 
