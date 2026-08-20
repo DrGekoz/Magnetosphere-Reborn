@@ -259,7 +259,10 @@ Built by **DrGekoz**. This project references and builds upon:
 | MilkDrop3 | https://github.com/milkdrop2077/MilkDrop3 | Audio routing + preset concepts (WASAPI loopback, beat detection); keyboard shortcuts (`C` randomize colors, `A`/`Z` prev/next preset, `N` auto-rotate on beat) |
 | audioMotion-analyzer | https://github.com/hvianna/audioMotion-analyzer | High-res spectrum analyzer, integrated as a visual mode (**AGPL-3.0**) |
 | party-mode / vizz.fm | https://github.com/preziotte/party-mode | Browser music visualizer inspiration |
-| The Book of Shaders | https://github.com/patriciogonzalezvivo/thebookofshaders | Shader education & reference |
+| Butterchurn | https://github.com/jberg/butterchurn | MilkDrop2 shader engine (WebGL2) powering the Milk visual mode + .milk preset import |
+| audio-visualizer-three-js | https://github.com/santosharron/audio-visualizer-three-js | Frequency-blob technique (icosahedron displaced by FFT + noise) in the Frequency Blob theme |
+| 3D Audio Visualizer (waelyasmina) | https://waelyasmina.net/articles/how-to-create-a-3d-audio-visualizer-using-three-js/ | Audio-reactive three.js techniques (AudioAnalyser + vertex displacement + UnrealBloom) |
+| three-particles | https://github.com/NewKrok/three-particles | Particle system concepts (trails) |
 | 3D Game Shaders for Beginners | https://github.com/lettier/3d-game-shaders-for-beginners | Post-processing effects (film grain, posterize, sharpen, pixelize) |
 | tinyraytracer | https://github.com/ssloy/tinyraytracer | Raytracing reference |
 | The-Forge | https://github.com/ConfettiFX/The-Forge | Considered for the renderer, not used (stayed on WebGL2) |
