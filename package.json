@@ -17,12 +17,14 @@
     "electron-builder": "^26.0.0"
   },
   "build": {
-    "appId": "com.gekoz.itunesvisualizer",
-    "productName": "iTunes Visualizer",
+    "appId": "com.gekoz.magnetosphere",
+    "productName": "Magnetosphere Reborn",
     "files": [
       "main.js",
       "preload.js",
-      "renderer/**/*"
+      "renderer/**/*",
+      "build/icon.ico",
+      "build/icon.png"
     ],
     "win": {
       "target": [
@@ -33,10 +35,11 @@
           ]
         }
       ],
-      "artifactName": "iTunes-Visualizer-${version}.exe"
+      "icon": "build/icon.ico",
+      "artifactName": "Magnetosphere-Reborn-${version}.exe"
     },
     "portable": {
-      "artifactName": "iTunes-Visualizer.exe"
+      "artifactName": "Magnetosphere-Reborn.exe"
     },
     "compression": "normal",
     "asar": true

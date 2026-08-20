@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, desktopCapturer, screen, ipcMain, session } = require('electron');
+const { app, BrowserWindow, desktopCapturer, screen, ipcMain, session, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -24,6 +24,7 @@ function createWindow() {
   win = new BrowserWindow({
     x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height,
     frame: false, title: 'Magnetosphere Reborn',
+    icon: path.join(__dirname, 'build', 'icon.png'),
     transparent: false,
     backgroundColor: '#000000',
     fullscreenable: true,
@@ -33,6 +34,14 @@ function createWindow() {
       nodeIntegration: false,
     },
   });
+  // Taskbar icon (overrides the default Electron icon in dev too)
+  try {
+    const ico = nativeImage.createFromPath(path.join(__dirname, 'build', 'icon.ico'));
+    if (!ico.isEmpty()) {
+      win.setIcon(ico);
+      app.setName('Magnetosphere Reborn');
+    }
+  } catch (e) { console.error('icon', e.message); }
   win.on('enter-full-screen', () => { if (!win.isDestroyed()) win.webContents.send('fullscreen-change', true); });
   win.on('leave-full-screen', () => { if (!win.isDestroyed()) win.webContents.send('fullscreen-change', false); });
   win.setMenuBarVisibility(false);
