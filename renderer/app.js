@@ -59,6 +59,36 @@ class App {
     this.themeScene = {};
     this._customPresets = [];
     this._frameCounter = 0;
+    // shared state for post-processing + infrastructure engines
+    this.state = { params: this.params, postProcessing: {} };
+    // === infrastructure engines (three.js addons) ===
+    this.pp = null;
+    this.materialsLib = null;
+    this.gltf = null;
+    this.webcam = null;
+    try {
+      const PP = window.__modules['postprocessing-engine'];
+      // PP needs the three.js renderer/scene/camera — wire after orb engine init (below)
+      this._PPClass = PP;
+    } catch (e) { console.log('postprocessing unavailable:', e.message); }
+    try {
+      const ML = window.__modules['materials-library'];
+      if (ML) this.materialsLib = (typeof ML === 'function') ? new ML() : ML;
+    } catch (e) { console.log('materials unavailable:', e.message); }
+    try {
+      const GL = window.__modules['gltf-loader-engine'];
+      if (GL) {
+        const cls = GL.GLTFLoaderEngine || GL;
+        this.gltf = (typeof cls === 'function') ? new cls() : cls;
+      }
+    } catch (e) { console.log('gltf unavailable:', e.message); }
+    try {
+      const WC = window.__modules['webcam-hdri'];
+      if (WC) {
+        const cls = WC.WebcamHDRI || WC;
+        this.webcam = (typeof cls === 'function') ? new cls() : cls;
+      }
+    } catch (e) { console.log('webcam unavailable:', e.message); }
     this._init();
   }
 
@@ -666,7 +696,7 @@ class App {
           var doc = this._iframeEl.contentDocument || this._iframeEl.contentWindow?.document;
           if (doc) {
             var c = doc.getElementById('c') || doc.getElementById('p-canvas');
-            if (c && (tplId === 'particles' || tplId === 'helpers')) {
+            if (c && (tplId === 'particles' || tplId === 'helpers' || tplId === 'instancing-raycast')) {
               c.width = document.body.clientWidth;
               c.height = document.body.clientHeight;
               // Notify iframe to redraw
@@ -683,7 +713,7 @@ class App {
       try { this._iframeEl.contentWindow.postMessage(msg, '*'); } catch (e) {}
     }
     // Send params to particles/av3d templates
-    if (tplId === 'particles' || tplId === 'av3d') {
+    if (tplId === 'particles' || tplId === 'av3d' || tplId === 'instancing-raycast') {
       try { this._iframeEl.contentWindow.postMessage({ __mag: 'mag-' + tplId + '-params', params: this._getTemplateParams(tplId) }, '*'); } catch (e) {}
     }
   }
@@ -718,13 +748,20 @@ class App {
       this.orb.updateOrbs(this.scene.orbs, p, this._bandCols(), a.energy, a.beat);
       this.orb.updateParticles(this.scene.particles);
       this.orb.render(time, a.energy, a.beat);
+      // global post-processing stack on top of the three.js orb render
+      if (this.pp && this.pp.composer && this.pp.hasEnabled()) {
+        try {
+          this.pp.apply(time);
+          this.pp.composer.render();
+        } catch (e) { /* PP unavailable for this frame */ }
+      }
       // skip raymarch FBO path entirely
       return;
     }
 
     // ---- iframe template path (vendored repos run their native systems) ----
     const iframeTplKey = vis.toLowerCase();
-    const iframeMap = { blob: null, milk: null, audiomotion: null, bars: null, scope: null, plasma: null, fountain: null, av3d: 'av3d', 'party-mode': 'party-mode', particles: 'particles', helpers: 'helpers' };
+    const iframeMap = { blob: null, milk: null, audiomotion: null, bars: null, scope: null, plasma: null, fountain: null, av3d: 'av3d', 'party-mode': 'party-mode', particles: 'particles', helpers: 'helpers', 'instancing-raycast': 'instancing-raycast' };
     const iframeTpl = iframeMap[iframeTplKey];
     if (iframeTpl) {
       this._showIframe(iframeTpl, a);

@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Instancing Raycast — Audio Reactive</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#000;overflow:hidden;width:100vw;height:100vh}canvas{display:block;width:100%;height:100%}
+#ui-overlay{position:absolute;top:10px;left:10px;color:#cfc;font-family:Consolas,monospace;font-size:11px;z-index:10;pointer-events:none;opacity:.8}
+#tooltip{position:absolute;display:none;background:rgba(10,14,20,.85);color:#8fffc0;font-family:Consolas,monospace;font-size:11px;padding:4px 8px;border:1px solid rgba(80,255,170,.4);border-radius:6px;pointer-events:none;white-space:nowrap}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui-overlay">AUDIO REACTIVE | HOVER TO SELECT | G=glow R=raytrace M=material T=type</div>
+<div id="tooltip"></div>
+<script src="../../vendor/three.js"></script>
+<script>
+(function(){'use strict';
+var canvas=document.getElementById('c');
+var tooltip=document.getElementById('tooltip');
+if(!canvas)return;
+
+// ============ renderer / scene / camera ============
+var renderer=new THREE.WebGLRenderer({canvas:canvas,antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+renderer.setSize(canvas.width||window.innerWidth,canvas.height||window.innerHeight);
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.2;
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+
+var scene=new THREE.Scene();
+scene.background=new THREE.Color(0x05070f);
+scene.fog=new THREE.FogExp2(0x05070f,0.02);
+
+var camera=new THREE.PerspectiveCamera(55,canvas.width/canvas.height,0.1,200);
+camera.position.set(0,9,20);
+camera.lookAt(0,0,0);
+
+// ============ lights ============
+var ambient=new THREE.AmbientLight(0x223355,0.8);
+scene.add(ambient);
+var dir=new THREE.DirectionalLight(0xfff5e0,1.6);
+dir.position.set(8,16,6);
+dir.castShadow=true;
+dir.shadow.mapSize.set(1024,1024);
+scene.add(dir);
+var point=new THREE.PointLight(0x4488ff,1.2,40);
+point.position.set(-6,6,-4);
+scene.add(point);
+var point2=new THREE.PointLight(0xff4488,0.6,30);
+point2.position.set(6,3,6);
+scene.add(point2);
+
+// ============ ground plane (reflective) ============
+var groundMat=new THREE.MeshStandardMaterial({color:0x0a0e1a,metalness:0.85,roughness:0.35,envMapIntensity:0.6});
+var ground=new THREE.Mesh(new THREE.PlaneGeometry(80,80),groundMat);
+ground.rotation.x=-Math.PI/2;
+ground.position.y=-3;
+ground.receiveShadow=true;
+scene.add(ground);
+
+// ============ instanced grid of cubes ============
+var GRID=8,CELL=1.6,N=GRID*GRID;
+var geo=new THREE.BoxGeometry(1,1,1);
+var mat=new THREE.MeshStandardMaterial({color:0xffffff,metalness:0.4,roughness:0.35,emissive:0x000000});
+var mesh=new THREE.InstancedMesh(geo,mat,N);
+mesh.castShadow=true;
+mesh.receiveShadow=true;
+
+var dummy=new THREE.Object3D();
+var baseColors=[];
+function hsl2rgb(h,s,l){var r,g,b;if(s===0){r=g=b=l;}else{var hue2=function(p,q,t){if(t<0)t+=1;if(t>1)t-=1;if(t<1/6)return p+(q-p)*6*t;if(t<1/2)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p;};var q=l<0.5?l*(1+s):l+s-l*s,p=2*l-q;r=hue2(p,q,h+1/3);g=hue2(p,q,h);b=hue2(p,q,h-1/3);}return[r,g,b];}
+var c=new THREE.Color();
+for(var i=0;i<GRID;i++){
+  for(var j=0;j<GRID;j++){
+    var idx=i*GRID+j;
+    var x=(i-GRID/2)*CELL;
+    var z=(j-GRID/2)*CELL;
+    dummy.position.set(x,-3,z);
+    dummy.rotation.set(0,0,0);
+    dummy.scale.setScalar(0.7+Math.random()*0.3);
+    dummy.updateMatrix();
+    mesh.setMatrixAt(idx,dummy.matrix);
+    var hue=((i/GRID)*0.75+(j/GRID)*0.25+Math.random()*0.08)%1;
+    var rgb=hsl2rgb(hue,0.75,0.55);
+    c.setRGB(rgb[0],rgb[1],rgb[2]);
+    mesh.setColorAt(idx,c);
+    baseColors.push(c.clone());
+  }
+}
+mesh.instanceMatrix.needsUpdate=true;
+if(mesh.instanceColor) mesh.instanceColor.needsUpdate=true;
+scene.add(mesh);
+
+// ============ raycasting ============
+var raycaster=new THREE.Raycaster();
+var mouse=new THREE.Vector2(-10,-10);
+var hovered=-1;
+var hoverSmooth=0;
+canvas.addEventListener('mousemove',function(e){
+  var r=canvas.getBoundingClientRect();
+  mouse.x=((e.clientX-r.left)/r.width)*2-1;
+  mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+});
+
+// ============ audio state ============
+var hostAudio={energy:0,bass:0,mid:0,treble:0,freqData:null,beat:0};
+
+// ============ material switcher (M key + params) ============
+var matModes=[{name:'standard',metal:0.4,rough:0.35,emis:0},{name:'metallic',metal:0.95,rough:0.15,emis:0},{name:'glass',metal:0.1,rough:0.05,emis:0,trans:0.6},{name:'emissive',metal:0.2,rough:0.5,emis:0.7}];
+var matMode=0;
+
+// ============ params from host ============
+var params={glow:1.2,raytrace:1,type:0,sensitivity:1};
+window.addEventListener('message',function(ev){
+  var d=ev.data;
+  if(!d)return;
+  if(d.__mag==='mag-audio'){
+    if(d.freqData)hostAudio.freqData=d.freqData;
+    hostAudio.energy=d.energy||0;hostAudio.bass=d.bass||0;
+    hostAudio.mid=d.mid||0;hostAudio.treble=d.treble||0;
+    hostAudio.beat=d.beat||0;
+  }
+  if(d.__mag==='mag-instancing-raycast-resize'&&d.w&&d.h){
+    canvas.width=d.w;canvas.height=d.h;
+    camera.aspect=d.w/d.h;camera.updateProjectionMatrix();
+    renderer.setSize(d.w,d.h);
+  }
+  if(d.__mag==='mag-instancing-raycast-params'&&d.params){
+    if(d.params.glowIntensity!==undefined)params.glow=parseFloat(d.params.glowIntensity);
+    if(d.params.raytraced!==undefined)params.raytrace=d.params.raytraced?1:0;
+    if(d.params.instType!==undefined)params.type=parseInt(d.params.instType)||0;
+    if(d.params.sensitivity!==undefined)params.sensitivity=parseFloat(d.params.sensitivity);
+    if(d.params.instMaterial!==undefined){
+      var mi=parseInt(d.params.instMaterial)||0;
+      if(mi<matModes.length)matMode=mi;
+    }
+  }
+});
+
+// ============ keyboard ============
+document.addEventListener('keydown',function(e){
+  var k=(e.key||'').toLowerCase();
+  if(k==='g')params.glow=(params.glow+0.3)%2;
+  if(k==='r')params.raytrace=params.raytrace?0:1;
+  if(k==='m')matMode=(matMode+1)%matModes.length;
+  if(k==='t')params.type=(params.type+1)%4;
+});
+
+// ============ resize ============
+function resize(){
+  canvas.width=window.innerWidth;canvas.height=window.innerHeight;
+  camera.aspect=canvas.width/canvas.height;camera.updateProjectionMatrix();
+  renderer.setSize(canvas.width,canvas.height);
+}
+window.addEventListener('resize',resize);
+setTimeout(resize,80);
+
+// ============ geometry types ============
+var geos=[
+  new THREE.BoxGeometry(1,1,1),
+  new THREE.SphereGeometry(0.55,24,16),
+  new THREE.CylinderGeometry(0.45,0.45,1,24),
+  new THREE.TetrahedronGeometry(0.7)
+];
+
+// ============ render loop ============
+var time=0,camAngle=0,beatFlash=0;
+function loop(){
+  requestAnimationFrame(loop);
+  time+=1/60;
+  beatFlash*=0.9;
+  if(hostAudio.beat>0.5)beatFlash=1;
+
+  // camera orbit (slow, energy-reactive)
+  camAngle+=0.0015*(1+hostAudio.energy*2);
+  var cx=Math.sin(camAngle)*18,cz=Math.cos(camAngle)*18;
+  camera.position.x=cx;camera.position.z=cz;
+  camera.position.y=8+Math.sin(time*0.25)*1.5+hostAudio.bass*1.2;
+  camera.lookAt(0,0,0);
+
+  // raycast hover
+  raycaster.setFromCamera(mouse,camera);
+  var hits=raycaster.intersectObject(mesh);
+  if(hits.length>0&&hits[0].instanceId!==undefined){
+    hovered=hits[0].instanceId;
+    tooltip.style.display='block';
+    tooltip.textContent='ID:'+hovered;
+    tooltip.style.left=(mouse.x*0.5+0.5)*canvas.width+12+'px';
+    tooltip.style.top=(-mouse.y*0.5+0.5)*canvas.height-24+'px';
+  }else{hovered=-1;tooltip.style.display='none';}
+  hoverSmooth+=(hovered>=0?1:0-hoverSmooth)*0.12;
+
+  // material params
+  var mm=matModes[matMode];
+  mat.metalness=mm.metal;
+  mat.roughness=mm.rough+(1-params.raytrace)*0.4;
+  mat.transmission=mm.trans||0;
+  mat.emissive.setRGB(mm.emis*params.glow,mm.emis*params.glow*0.8,mm.emis*params.glow*0.6);
+  mat.emissiveIntensity=0.5+hostAudio.energy*2+beatFlash;
+  mat.needsUpdate=true;
+
+  // per-instance animation: audio-reactive scale pulse + beat flash + hover highlight
+  var bass=hostAudio.bass*params.sensitivity;
+  var energy=hostAudio.energy*params.sensitivity;
+  var d2=new THREE.Object3D();
+  for(var k=0;k<N;k++){
+    var ii=Math.floor(k/GRID),jj=k%GRID;
+    var px=(ii-GRID/2)*CELL,pz=(jj-GRID/2)*CELL;
+    // pulsing height/scale on bass
+    var pulse=1+Math.sin(time*6+ii*1.3+jj*0.7)*0.12*energy+bass*0.35*Math.sin(time*9+k);
+    var sel=(k===hovered)?1+0.4*hoverSmooth:1;
+    d2.position.set(px,-3+pulse*0.5,pz);
+    d2.rotation.set(time*0.3*(ii%2?1:-1),time*0.2,0);
+    d2.scale.setScalar((0.7+Math.random()*0.3)*0.5*pulse*sel);
+    d2.updateMatrix();
+    mesh.setMatrixAt(k,d2.matrix);
+    // hover highlight color
+    if(k===hovered){
+      var cc=new THREE.Color(1,0.9,0.3).lerp(baseColors[k],0.5-hoverSmooth*0.3);
+      mesh.setColorAt(k,cc);
+    }else{
+      // subtle energy color shift
+      var bc=baseColors[k].clone();
+      bc.offsetHSL(0,0,energy*0.08);
+      mesh.setColorAt(k,bc);
+    }
+  }
+  mesh.instanceMatrix.needsUpdate=true;
+  if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
+
+  // light animation
+  point.color.setHSL((time*0.04)%1,0.7,0.5+energy*0.3);
+  dir.intensity=1.4+energy*1.2+beatFlash*0.8;
+
+  renderer.render(scene,camera);
+}
+loop();
+
+try{window.parent.postMessage({__mag:'mag-instancing-raycast-ready'},'*');}catch(e){}
+})();
+</script>
+</body>
+</html>

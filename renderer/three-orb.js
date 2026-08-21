@@ -33,17 +33,35 @@
         this.camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
         this.camera.position.set(0, 0.8, 3.2);
         this.camera.lookAt(0, 0, 0);
-        // ---- UnrealBloom post-processing (the 'way better glow') ----
-        try {
-          this.composer = new THREE.EffectComposer(this.renderer);
-          this.composer.addPass(new THREE.RenderPass(this.scene, this.camera));
-          this.bloom = new THREE.UnrealBloomPass(new THREE.Vector2(1, 1), 0.85, 0.5, 0.25);
-          this.composer.addPass(this.bloom);
-          if (THREE.OutputPass) this.composer.addPass(new THREE.OutputPass());
-          this.composer.setSize(1, 1);
-        } catch (e) {
-          this.composer = null;
-          console.log('[three-orb] bloom unavailable:', e.message);
+        // ---- PostProcessingEngine integration ----
+        // If the postprocessing-engine module is loaded, use it for the full pipeline
+        const ppModule = window.__modules && window.__modules['postprocessing-engine'];
+        if (ppModule && ppModule.PostProcessingEngine) {
+          try {
+            this.ppEngine = new ppModule.PostProcessingEngine(this.renderer);
+            this.ppEngine.init(this.scene, this.camera);
+            // Store reference on state for selective bloom tracking
+            this.ppEngine.scanLights(this.scene);
+            // Disable the built-in bloom since the PP engine handles it
+            this._useSharedPP = true;
+          } catch(e) {
+            console.log('[three-orb] PP Engine init failed, falling back to local bloom:', e.message);
+            this._useSharedPP = false;
+          }
+        }
+        // Fallback local bloom if no shared PP engine
+        if (!this._useSharedPP) {
+          try {
+            this.composer = new THREE.EffectComposer(this.renderer);
+            this.composer.addPass(new THREE.RenderPass(this.scene, this.camera));
+            this.bloom = new THREE.UnrealBloomPass(new THREE.Vector2(1, 1), 0.85, 0.5, 0.25);
+            this.composer.addPass(this.bloom);
+            if (THREE.OutputPass) this.composer.addPass(new THREE.OutputPass());
+            this.composer.setSize(1, 1);
+          } catch (e) {
+            this.composer = null;
+            console.log('[three-orb] bloom unavailable:', e.message);
+          }
         }
 
         // ---- studio lighting rig (3-point) ----
@@ -166,7 +184,11 @@
       this.renderer.setSize(w, h, false);
       this.camera.aspect = w / h;
       this.camera.updateProjectionMatrix();
-      if (this.composer) this.composer.setSize(w, h);
+      if (this._useSharedPP && this.ppEngine) {
+        this.ppEngine.setSize(w, h);
+      } else if (this.composer) {
+        this.composer.setSize(w, h);
+      }
     }
 
     // update orbs: positions + per-instance color from band colors
@@ -288,7 +310,13 @@
       this.camera.position.x = Math.sin(time * 0.05) * 0.15;
       this.camera.position.y = 0.8 + Math.sin(time * 0.08) * 0.1;
       this.camera.lookAt(0, 0, 0);
-      if (this.composer) {
+      if (this._useSharedPP && this.ppEngine) {
+        // shared post-processing engine (bloom + DOF + godrays + SSAO + ...)
+        try {
+          this.ppEngine.apply(time);
+          this.ppEngine.composer.render();
+        } catch (e) { /* PP engine failed this frame */ }
+      } else if (this.composer) {
         // bloom reacts to energy
         this.bloom.strength = 0.5 + energy * 1.1 + beat * 0.8;
         this.composer.render();

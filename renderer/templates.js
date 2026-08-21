@@ -209,6 +209,26 @@
         { key: 'showFPS', label: 'Show FPS', section: 'perf', type: 'toggle', def: 0 },
       ],
     },
+    // ---- instancing-raycast (three.js InstancedMesh) ----
+    instancing: {
+      sections: [
+        { id: 'instancing', label: 'INSTANCED MESH' },
+        { id: 'audio', label: 'AUDIO' },
+        { id: 'perf', label: 'PERFORMANCE' },
+      ],
+      params: [
+        { key: 'instType', label: 'Geometry Type', section: 'instancing', type: 'dropdown', options: ['Cube', 'Sphere', 'Cylinder', 'Tetrahedron'] },
+        { key: 'instMaterial', label: 'Material Mode', section: 'instancing', type: 'dropdown', options: ['Standard', 'Metallic', 'Glass', 'Emissive'] },
+        { key: 'gridSize', label: 'Grid Size', section: 'instancing', type: 'slider', min: 4, max: 12, step: 2 },
+        { key: 'instSpacing', label: 'Cell Spacing', section: 'instancing', type: 'slider', min: 0.5, max: 3, step: 0.1 },
+        { key: 'glowIntensity', label: 'Glow Intensity', section: 'instancing', type: 'slider', min: 0, max: 2, step: 0.05 },
+        { key: 'raytraced', label: 'Raytrace Reflections', section: 'instancing', type: 'toggle', def: 1 },
+        { key: 'mouseReactive', label: 'Mouse Highlight', section: 'instancing', type: 'toggle', def: 1 },
+        { key: 'sensitivity', label: 'Audio Sensitivity', section: 'audio', type: 'slider', min: 0.1, max: 4, step: 0.05 },
+        { key: 'targetFPS', label: 'Target FPS', section: 'perf', type: 'slider', min: 30, max: 240, step: 5 },
+        { key: 'showFPS', label: 'Show FPS', section: 'perf', type: 'toggle', def: 0 },
+      ],
+    },
   };
   // 'thumb' = path to a static thumbnail (from the repo README where available).
   const TEMPLATES = [
@@ -221,6 +241,7 @@
     { id: 'party-mode', name: 'party-mode', category: 'Community', engine: 'iframe', schemaId: 'party', desc: 'D3 hexbin + waveform visualizations (preziotte/party-mode).', thumb: 'templates/thumbs/party-mode.png' },
     { id: 'particles', name: 'Interactive Particles', category: 'Community', engine: 'particles', schemaId: 'particles', desc: 'Noise-displaced audio-reactive point cloud (Codrops/Tiago Canzian).', thumb: '' },
     { id: 'helpers', name: 'WebGL Helpers', category: 'Core', engine: 'iframe', schemaId: 'helpers', desc: 'Axes, grids, wireframes — scene geometry debug view (mrdoob/three.js examples). Audio-reactive.', thumb: '' },
+    { id: 'instancing-raycast', name: 'Instancing Raycast', category: 'Community', engine: 'iframe', schemaId: 'instancing', desc: 'InstancedMesh with raycasting hover, audio-reactive glow, material switching (mrdoob/three.js examples/webgl_instancing_raycast.html).', thumb: '' },
   ];
 
   // Static thumbs (extracted from repo READMEs) live in renderer/templates/thumbs/<id>.png
