@@ -99,16 +99,42 @@ A **Demo mode** (synthesized beat) is built in as a fallback when no audio is pl
 
 Paginated, categorized template selector with live thumbnails.
 
-**Engines / Templates** — 6 engines, each with its own native renderer and its **own settings panel** (the params shown rebuild when you switch):
+**Engines / Templates** — 18 templates, each with its own native renderer and its **own settings panel** (the params shown rebuild when you switch):
 
-| Engine | Renderer | Params |
+| Engine | Templates | Params each |
 |---|---|---|
-| **Orbs** | three.js metaball orbs, real 3-point lighting, PBR materials, UnrealBloom | 67 |
+| **Orbs** | three.js metaball orbs, PBR materials, UnrealBloom | 67 |
 | **Frequency Blob** | icosahedron displaced by the FFT (audio-visualizer-three-js) | 13 |
 | **MilkDrop** | full MilkDrop2 engine via butterchurn, import .milk presets | 5 |
 | **audioMotion** | high-res spectrum analyzer (AGPL-3.0) | 9 |
 | **Raymarch** | original raymarched metaball field | 67 |
-| **Three.js Visualizer** | vendored audio-visualizer-three-js running natively in a sandboxed iframe, fed system audio | 5 |
+| **Three.js Visualizer** | vendored audio-visualizer-three-js in sandboxed iframe | 5 |
+| **party-mode** | D3.js hexbin/waveform (preziotte/party-mode) | 4 |
+| **Interactive Particles** | noise-displaced point cloud (Codrops/Tiago Canzian) | 8 |
+| **WebGL Helpers** | axes/grids/wireframe debug view (three.js example) | 5 |
+| **Instancing Raycast** | InstancedMesh + raycast hover + material switcher (three.js example) | 10 |
+| **Interactive Lines** | wave lines pulsing with audio (webgl_interactive_lines) | 5 |
+| **Interactive Points** | galaxy points expanding with bass (webgl_interactive_points) | 5 |
+| **Point Waves** | top-down wave field, drag-pan (webgl_points_waves) | 6 |
+| **Billboard Points** | sprite points scaling with energy (webgl_points_billboards) | 5 |
+| **Marching Cubes** | metaball fluid, 15 blobs / res 60 / iso 73 (webgl_marchingcubes) | 7 |
+| **Pathtracer Style** | reflective cube bouncing with bass (webgl_renderer_pathtracer) | 5 |
+| **Tornado VFX** | particle whirlwind driven by energy (webgpu_tsl_vfx_tornado) | 6 |
+| **Fractal Music** | Julia set morphing with audio (womogenes/fractal-music-visualizer) | 6 |
+
+The settings panel filters by engine, and every template exposes its own params — switch to Marching Cubes and you get blob count/resolution/isolation; switch to Fractal and you get zoom/iterations/color mode.
+
+### Auto-Mode
+
+Randomly cycles through all 18 templates every N seconds (settable 2–300s). Uses the post-processing transition shader to flow between themes.
+
+### Post-Processing
+
+11 toggleable passes, each with its own params: Unreal Bloom (selective per-object), Depth of Field (AutoFocus mode), God Rays, SSAO/GTAO, Screen-Space Reflections, Pixelate, RGB Halftone, Outline, Lens Flare, plus crossfade transitions for auto-mode.
+
+### GLTF Model Loader + Webcam HDRI
+
+Drop in a .glb/.gltf model and it renders in any scene with the scene itself captured as the realtime reflection map. Webcam capture can derive an HDRI environment map for any physical material — toggle it in settings.
 
 | Category | Themes |
 |---|---|
