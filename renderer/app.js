@@ -298,7 +298,7 @@ class App {
   _applyTemplateForMode(mode) {
     if (!window.__modules.templates || !this.ui) return;
     const { TEMPLATES } = window.__modules.templates;
-    const id = ({ Blob: 'blob', Milk: 'milk', audioMotion: 'audiomotion', av3d: 'av3d', 'party-mode': 'party-mode', particles: 'particles', Bars: 'raymarch', Scope: 'raymarch', Plasma: 'raymarch', Fountain: 'raymarch' })[mode] || 'orbs';
+    const id = ({ Blob: 'blob', Milk: 'milk', audioMotion: 'audiomotion', av3d: 'av3d', 'party-mode': 'party-mode', particles: 'particles', helpers: 'helpers', 'instancing-raycast': 'instancing-raycast', lines: 'lines', points: 'points', waves: 'waves', billboards: 'billboards', marching: 'marching', pathtracer: 'pathtracer', tornado: 'tornado', fractal: 'fractal', Bars: 'raymarch', Scope: 'raymarch', Plasma: 'raymarch', Fountain: 'raymarch' })[mode] || 'orbs';
     const tpl = TEMPLATES.find((t) => t.id === id);
     if (tpl) this.ui.setTemplate(tpl);
   }
@@ -310,7 +310,7 @@ class App {
     const tpl = TEMPLATES.find((t) => t.id === id);
     if (!tpl) return;
     this.ui.setTemplate(tpl);
-    if (tpl.engine === 'iframe') {
+    if (tpl.engine === 'iframe' || tpl.engine === 'three-template') {
       this.setParam('visualMode', id);
     } else if (tpl.id === 'orbs') {
       this.setParam('visualMode', 'Orbs');
@@ -696,7 +696,7 @@ class App {
           var doc = this._iframeEl.contentDocument || this._iframeEl.contentWindow?.document;
           if (doc) {
             var c = doc.getElementById('c') || doc.getElementById('p-canvas');
-            if (c && (tplId === 'particles' || tplId === 'helpers' || tplId === 'instancing-raycast')) {
+            if (c && (tplId === 'particles' || tplId === 'helpers' || tplId === 'instancing-raycast' || tplId === 'three-template')) {
               c.width = document.body.clientWidth;
               c.height = document.body.clientHeight;
               // Notify iframe to redraw
@@ -761,10 +761,17 @@ class App {
 
     // ---- iframe template path (vendored repos run their native systems) ----
     const iframeTplKey = vis.toLowerCase();
-    const iframeMap = { blob: null, milk: null, audiomotion: null, bars: null, scope: null, plasma: null, fountain: null, av3d: 'av3d', 'party-mode': 'party-mode', particles: 'particles', helpers: 'helpers', 'instancing-raycast': 'instancing-raycast' };
+    const iframeMap = { blob: null, milk: null, audiomotion: null, bars: null, scope: null, plasma: null, fountain: null, av3d: 'av3d', 'party-mode': 'party-mode', particles: 'particles', helpers: 'helpers', 'instancing-raycast': 'instancing-raycast', lines: 'three-template', points: 'three-template', waves: 'three-template', billboards: 'three-template', marching: 'three-template', pathtracer: 'three-template', tornado: 'three-template', fractal: 'three-template' };
     const iframeTpl = iframeMap[iframeTplKey];
     if (iframeTpl) {
       this._showIframe(iframeTpl, a);
+      // send theme key + params to three-template host
+      if (iframeTpl === 'three-template') {
+        try {
+          const tp = Object.assign({ theme: iframeTplKey }, this._getTemplateParams(iframeTplKey));
+          this._iframeEl.contentWindow.postMessage({ __mag: 'mag-three-template-params', params: tp }, '*');
+        } catch (e) {}
+      }
       return;
     }
     this._hideIframe();

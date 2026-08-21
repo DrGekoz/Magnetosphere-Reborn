@@ -229,6 +229,92 @@
         { key: 'showFPS', label: 'Show FPS', section: 'perf', type: 'toggle', def: 0 },
       ],
     },
+    // ---- three-template host (shared three.js engine: 8 themes) ----
+    lines: {
+      sections: [ { id: 'lines', label: 'LINES' }, { id: 'audio', label: 'AUDIO' } ],
+      params: [
+        { key: 'lineColor', label: 'Line Color', section: 'lines', type: 'text', placeholder: 'ff8800' },
+        { key: 'lineGlow', label: 'Glow', section: 'lines', type: 'slider', min: 0, max: 2, step: 0.05 },
+        { key: 'waveSpeed', label: 'Wave Speed', section: 'lines', type: 'slider', min: 0.1, max: 4, step: 0.05 },
+        { key: 'waveAmplitude', label: 'Wave Amplitude', section: 'lines', type: 'slider', min: 0.1, max: 3, step: 0.05 },
+        { key: 'sensitivity', label: 'Audio Sensitivity', section: 'audio', type: 'slider', min: 0.1, max: 4, step: 0.05 },
+      ],
+    },
+    points: {
+      sections: [ { id: 'points', label: 'POINTS' }, { id: 'audio', label: 'AUDIO' } ],
+      params: [
+        { key: 'pointSize', label: 'Point Size', section: 'points', type: 'slider', min: 0.5, max: 8, step: 0.1 },
+        { key: 'pointColor', label: 'Point Color', section: 'points', type: 'text', placeholder: '00ffff' },
+        { key: 'particleCount', label: 'Particle Count', section: 'points', type: 'slider', min: 1000, max: 20000, step: 500 },
+        { key: 'expansion', label: 'Bass Expansion', section: 'points', type: 'slider', min: 0, max: 3, step: 0.05 },
+        { key: 'sensitivity', label: 'Audio Sensitivity', section: 'audio', type: 'slider', min: 0.1, max: 4, step: 0.05 },
+      ],
+    },
+    waves: {
+      sections: [ { id: 'waves', label: 'WAVES' }, { id: 'audio', label: 'AUDIO' } ],
+      params: [
+        { key: 'waveHeight', label: 'Wave Height', section: 'waves', type: 'slider', min: 0.1, max: 4, step: 0.05 },
+        { key: 'waveSpeed', label: 'Wave Speed', section: 'waves', type: 'slider', min: 0.1, max: 4, step: 0.05 },
+        { key: 'pointSize', label: 'Point Size', section: 'waves', type: 'slider', min: 0.5, max: 6, step: 0.1 },
+        { key: 'colorA', label: 'Color A (Hex)', section: 'waves', type: 'text', placeholder: 'ff00ff' },
+        { key: 'colorB', label: 'Color B (Hex)', section: 'waves', type: 'text', placeholder: '00ffff' },
+        { key: 'sensitivity', label: 'Audio Sensitivity', section: 'audio', type: 'slider', min: 0.1, max: 4, step: 0.05 },
+      ],
+    },
+    billboards: {
+      sections: [ { id: 'billboards', label: 'BILLBOARDS' }, { id: 'audio', label: 'AUDIO' } ],
+      params: [
+        { key: 'bbCount', label: 'Count', section: 'billboards', type: 'slider', min: 500, max: 8000, step: 100 },
+        { key: 'bbSize', label: 'Size', section: 'billboards', type: 'slider', min: 0.1, max: 2, step: 0.05 },
+        { key: 'bbSpread', label: 'Spread', section: 'billboards', type: 'slider', min: 1, max: 12, step: 0.1 },
+        { key: 'bbColor', label: 'Color', section: 'billboards', type: 'text', placeholder: 'ffaa00' },
+        { key: 'sensitivity', label: 'Audio Sensitivity', section: 'audio', type: 'slider', min: 0.1, max: 4, step: 0.05 },
+      ],
+    },
+    marching: {
+      sections: [ { id: 'marching', label: 'MARCHING CUBES' }, { id: 'audio', label: 'AUDIO' } ],
+      params: [
+        { key: 'mcBlobs', label: 'Blob Count', section: 'marching', type: 'slider', min: 5, max: 40, step: 1 },
+        { key: 'mcResolution', label: 'Resolution', section: 'marching', type: 'slider', min: 30, max: 120, step: 2 },
+        { key: 'mcIsolation', label: 'Isolation', section: 'marching', type: 'slider', min: 50, max: 100, step: 1 },
+        { key: 'mcSpeed', label: 'Speed', section: 'marching', type: 'slider', min: 0.05, max: 1, step: 0.05 },
+        { key: 'mcFloor', label: 'Floor', section: 'marching', type: 'toggle', def: 0 },
+        { key: 'mcWalls', label: 'Walls', section: 'marching', type: 'toggle', def: 0 },
+        { key: 'sensitivity', label: 'Audio Sensitivity', section: 'audio', type: 'slider', min: 0.1, max: 4, step: 0.05 },
+      ],
+    },
+    pathtracer: {
+      sections: [ { id: 'pathtracer', label: 'PATHTRACER' }, { id: 'audio', label: 'AUDIO' } ],
+      params: [
+        { key: 'ptColor', label: 'Cube Color', section: 'pathtracer', type: 'text', placeholder: 'ff5500' },
+        { key: 'ptReflect', label: 'Reflectivity', section: 'pathtracer', type: 'slider', min: 0, max: 1, step: 0.01 },
+        { key: 'ptBounce', label: 'Bounce Speed', section: 'pathtracer', type: 'slider', min: 0.1, max: 4, step: 0.05 },
+        { key: 'ptGlow', label: 'Glow', section: 'pathtracer', type: 'slider', min: 0, max: 2, step: 0.05 },
+        { key: 'sensitivity', label: 'Audio Sensitivity', section: 'audio', type: 'slider', min: 0.1, max: 4, step: 0.05 },
+      ],
+    },
+    tornado: {
+      sections: [ { id: 'tornado', label: 'TORNADO' }, { id: 'audio', label: 'AUDIO' } ],
+      params: [
+        { key: 'tnCount', label: 'Particle Count', section: 'tornado', type: 'slider', min: 2000, max: 30000, step: 500 },
+        { key: 'tnHeight', label: 'Height', section: 'tornado', type: 'slider', min: 2, max: 20, step: 0.5 },
+        { key: 'tnRadius', label: 'Radius', section: 'tornado', type: 'slider', min: 0.5, max: 6, step: 0.1 },
+        { key: 'tnSwirl', label: 'Swirl Speed', section: 'tornado', type: 'slider', min: 0.1, max: 5, step: 0.05 },
+        { key: 'tnColor', label: 'Color', section: 'tornado', type: 'text', placeholder: '66ffcc' },
+        { key: 'sensitivity', label: 'Audio Sensitivity', section: 'audio', type: 'slider', min: 0.1, max: 4, step: 0.05 },
+      ],
+    },
+    fractal: {
+      sections: [ { id: 'fractal', label: 'FRACTAL' }, { id: 'audio', label: 'AUDIO' } ],
+      params: [
+        { key: 'frZoom', label: 'Zoom', section: 'fractal', type: 'slider', min: 0.5, max: 8, step: 0.05 },
+        { key: 'frIter', label: 'Iterations', section: 'fractal', type: 'slider', min: 16, max: 256, step: 8 },
+        { key: 'frColor', label: 'Color Mode', section: 'fractal', type: 'dropdown', options: ['classic', 'fire', 'ice'] },
+        { key: 'frPanX', label: 'Pan X', section: 'fractal', type: 'slider', min: -2, max: 2, step: 0.01 },
+        { key: 'frPanY', label: 'Pan Y', section: 'fractal', type: 'slider', min: -2, max: 2, step: 0.01 },
+        { key: 'sensitivity', label: 'Audio Sensitivity', section: 'audio', type: 'slider', min: 0.1, max: 4, step: 0.05 },
+      ],
+    },
   };
   // 'thumb' = path to a static thumbnail (from the repo README where available).
   const TEMPLATES = [
@@ -242,6 +328,15 @@
     { id: 'particles', name: 'Interactive Particles', category: 'Community', engine: 'particles', schemaId: 'particles', desc: 'Noise-displaced audio-reactive point cloud (Codrops/Tiago Canzian).', thumb: '' },
     { id: 'helpers', name: 'WebGL Helpers', category: 'Core', engine: 'iframe', schemaId: 'helpers', desc: 'Axes, grids, wireframes — scene geometry debug view (mrdoob/three.js examples). Audio-reactive.', thumb: '' },
     { id: 'instancing-raycast', name: 'Instancing Raycast', category: 'Community', engine: 'iframe', schemaId: 'instancing', desc: 'InstancedMesh with raycasting hover, audio-reactive glow, material switching (mrdoob/three.js examples/webgl_instancing_raycast.html).', thumb: '' },
+    // ---- three-template host (shared three.js theme engine: 8 themes) ----
+    { id: 'lines', name: 'Interactive Lines', category: 'Community', engine: 'three-template', schemaId: 'lines', desc: 'Wave lines pulsing with audio (mrdoob/three.js webgl_interactive_lines).', thumb: '' },
+    { id: 'points', name: 'Interactive Points', category: 'Community', engine: 'three-template', schemaId: 'points', desc: 'Galaxy points expanding with bass (mrdoob/three.js webgl_interactive_points).', thumb: '' },
+    { id: 'waves', name: 'Point Waves', category: 'Community', engine: 'three-template', schemaId: 'waves', desc: 'Top-down wave field covering the canvas, drag to pan (webgl_points_waves).', thumb: '' },
+    { id: 'billboards', name: 'Billboard Points', category: 'Community', engine: 'three-template', schemaId: 'billboards', desc: 'Round sprite points scaling with energy (webgl_points_billboards).', thumb: '' },
+    { id: 'marching', name: 'Marching Cubes', category: 'Community', engine: 'three-template', schemaId: 'marching', desc: 'Metaball fluid with 15 blobs, res 60, iso 73 (webgl_marchingcubes).', thumb: '' },
+    { id: 'pathtracer', name: 'Pathtracer Style', category: 'Community', engine: 'three-template', schemaId: 'pathtracer', desc: 'Reflective cube bouncing with bass (webgl_renderer_pathtracer style).', thumb: '' },
+    { id: 'tornado', name: 'Tornado VFX', category: 'Community', engine: 'three-template', schemaId: 'tornado', desc: 'Particle whirlwind funnel driven by energy (webgpu_tsl_vfx_tornado).', thumb: '' },
+    { id: 'fractal', name: 'Fractal Music', category: 'Community', engine: 'three-template', schemaId: 'fractal', desc: 'Julia/Mandelbrot morphing with audio (womogenes/fractal-music-visualizer).', thumb: '' },
   ];
 
   // Static thumbs (extracted from repo READMEs) live in renderer/templates/thumbs/<id>.png
