@@ -137,6 +137,16 @@ class UI {
       <div class="panel-scroll">
       <div class="section">
         <div class="sec-label">${ICONS.sparkles} ENGINES / TEMPLATES</div>
+        <select id="engine-filter" class="p-drop" style="width:100%;margin-bottom:8px">
+          <option value="all">All Engines</option>
+          <option value="three">Three.js Core</option>
+          <option value="three-template">Three.js Themes</option>
+          <option value="iframe">Community / Iframe</option>
+          <option value="milk">MilkDrop</option>
+          <option value="audiomotion">audioMotion</option>
+          <option value="raymarch">Raymarch</option>
+          <option value="particles">Particles</option>
+        </select>
         <div id="tpl-grid" class="theme-grid"></div>
       </div>
       <div class="section">
@@ -194,6 +204,8 @@ class UI {
     this.els['about-btn'].addEventListener('click', () => this._openAbout());
     this.els['import-btn'].addEventListener('click', () => this._importFile());
     this.els['export-btn'].addEventListener('click', () => this._exportFile());
+    const engFilter = this.els['engine-filter'];
+    if (engFilter) engFilter.addEventListener('change', () => this._renderTplGrid());
 
     // theme category chips
     this._renderCats();
@@ -278,7 +290,10 @@ class UI {
     const cont = this.els['tpl-grid'];
     if (!cont) return;
     cont.innerHTML = '';
-    for (const t of TEMPLATES) {
+    const filterEl = this.els['engine-filter'];
+    const engine = filterEl ? filterEl.value : 'all';
+    const list = engine === 'all' ? TEMPLATES : TEMPLATES.filter((t) => t.engine === engine);
+    for (const t of list) {
       const card = document.createElement('div');
       card.className = 'theme-card' + (this._tplId === t.id ? ' active' : '');
       card.innerHTML = `<img class="theme-thumb" src="${this._thumbSrc(t)}" alt="${t.name}"><div class="theme-name">${t.name}</div><div class="theme-desc">${t.desc || ''}</div>`;

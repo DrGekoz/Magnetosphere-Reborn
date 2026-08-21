@@ -425,6 +425,23 @@ class App {
     }
   }
 
+  // Auto-mode: pick a random different theme and apply it
+  _autoCycleTheme() {
+    if (!window.__modules.templates) return;
+    const { TEMPLATES } = window.__modules.templates;
+    const current = this.params.visualMode || 'Orbs';
+    const ids = TEMPLATES.map((t) => t.id);
+    let next = null;
+    let guard = 0;
+    while (guard < 20) {
+      const tpl = TEMPLATES[Math.floor(Math.random() * TEMPLATES.length)];
+      if (tpl && tpl.id !== current.toLowerCase() && tpl.id !== 'orbs') { next = tpl.id; break; }
+      guard++;
+    }
+    if (!next) return;
+    this.applyTemplate(next);
+  }
+
   saveCustomPreset(name, params) {
     const p = Object.assign({}, params);
     this._customPresets.push({ name, params: p });
@@ -636,6 +653,16 @@ class App {
 
     // MilkDrop3-style: N = auto-rotate theme every 8 beats
     if (a.beat > 0.5) this._beatAutoRotate();
+
+    // Auto-mode: randomly cycle themes every N seconds
+    if (this.params.autoMode) {
+      this._autoModeT = (this._autoModeT || 0) + dt;
+      const interval = Math.max(2, this.params.autoModeSeconds || 30);
+      if (this._autoModeT >= interval) {
+        this._autoModeT = 0;
+        this._autoCycleTheme();
+      }
+    }
 
     // scene sim (skip in 2D modes? still run for particles)
     this.scene.update(dt, a, this.params, this.themeScene);

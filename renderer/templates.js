@@ -95,6 +95,9 @@
         { key: 'adaptiveRes', label: 'Adaptive Resolution', section: 'perf', type: 'toggle', def: 1 },
         { key: 'targetFPS', label: 'Target FPS', section: 'perf', type: 'slider', min: 30, max: 240, step: 5 },
         { key: 'showFPS', label: 'Show FPS', section: 'perf', type: 'toggle', def: 0 },
+        // Auto-mode
+        { key: 'autoMode', label: 'Auto-Mode (random themes)', section: 'fx', type: 'toggle', def: 0 },
+        { key: 'autoModeSeconds', label: 'Auto-Mode Interval (s)', section: 'fx', type: 'slider', min: 2, max: 300, step: 1 },
       ],
     },
 

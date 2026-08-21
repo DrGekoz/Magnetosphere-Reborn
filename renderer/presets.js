@@ -124,6 +124,11 @@ const DEFAULTS = {
   visualMode: 'Orbs',
   sensitivity: 1.0, smoothing: 0.75, bassBias: 1.0, beatThreshold: 0.22, musicMotion: 1.2, audioSource: 'System Audio',
   quality: 0.8, adaptiveRes: 1, targetFPS: 180, showFPS: 0,
+  // Auto-mode: randomly cycle themes every N seconds
+  autoMode: 0, autoModeSeconds: 30,
+  // Post-processing toggles (global, apply to all three.js themes)
+  ppUnrealBloom: 1, ppSelectiveBloom: 0, ppDof: 0, ppGodrays: 0, ppSsao: 0, ppGtao: 0,
+  ppSsr: 0, ppPixelate: 0, ppHalftone: 0, ppOutline: 0, ppLensflare: 0,
 };
 
 // ---------------------------------------------------------------------------
