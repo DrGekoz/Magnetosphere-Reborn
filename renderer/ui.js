@@ -98,9 +98,13 @@ class UI {
       html += `</div>`;
     }
     cont.innerHTML = html;
-    // re-collect + bind the new param elements
+    // re-collect + bind the new param elements (keep engine-filter + tpl-grid refs)
+    const savedFilter = this.els['engine-filter'];
+    const savedGrid = this.els['tpl-grid'];
     this.els = {};
     this.els['param-sections'] = cont;
+    if (savedFilter) this.els['engine-filter'] = savedFilter;
+    if (savedGrid) this.els['tpl-grid'] = savedGrid;
     cont.querySelectorAll('[id]').forEach((el) => { this.els[el.id] = el; });
     this._bindParams(params);
     // re-apply current values
